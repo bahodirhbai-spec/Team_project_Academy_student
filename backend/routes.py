@@ -11,7 +11,8 @@ from fastapi import (
     status,
 )
 
-from backend.config import Settings, StudentStatus
+from backend.config.business_rules import StudentStatus
+from backend.config.settings import Settings
 from backend.models import (
     Student,
     StudentCreate,
@@ -41,8 +42,6 @@ AppSettings = Annotated[Settings, Depends(get_app_settings)]
 StatusFilter = Annotated[StudentStatus | None, Query(alias="status")]
 
 
-# ----- Bahodirjon: add and list students -----
-
 @router.post(
     "/students",
     response_model=Student,
@@ -60,8 +59,6 @@ def list_students(
     """List all students; ?status=Active returns only active ones."""
     return repository.list_all(status_filter)
 
-
-# ----- Hasan: update students and summary -----
 
 @router.patch("/students/{student_id}", response_model=Student)
 def update_student(

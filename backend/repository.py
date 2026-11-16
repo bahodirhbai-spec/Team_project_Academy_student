@@ -6,11 +6,11 @@ directly. If we ever change databases, only this file changes.
 
 import sqlite3
 
-from backend.config import StudentStatus
+from backend.config.business_rules import StudentStatus
 from backend.database import Database
 from backend.models import Student, StudentCreate, StudentUpdate
 
-SELECT_COLUMNS = "SELECT id, name, topic, status, score FROM students"
+SELECT_STUDENTS_SQL = "SELECT id, name, topic, status, score FROM students"
 
 
 class StudentNotFoundError(Exception):
@@ -42,10 +42,10 @@ class StudentRepository:
         """Return all students, or only those with the given status."""
         with self._database.connect() as connection:
             if status is None:
-                rows = connection.execute(f"{SELECT_COLUMNS} ORDER BY id")
+                rows = connection.execute(f"{SELECT_STUDENTS_SQL} ORDER BY id")
             else:
                 rows = connection.execute(
-                    f"{SELECT_COLUMNS} WHERE status = ? ORDER BY id",
+                    f"{SELECT_STUDENTS_SQL} WHERE status = ? ORDER BY id",
                     (status.value,),
                 )
             return [_row_to_student(row) for row in rows]
@@ -54,7 +54,7 @@ class StudentRepository:
         """Return one student, or raise StudentNotFoundError."""
         with self._database.connect() as connection:
             row = connection.execute(
-                f"{SELECT_COLUMNS} WHERE id = ?", (student_id,)
+                f"{SELECT_STUDENTS_SQL} WHERE id = ?", (student_id,)
             ).fetchone()
         if row is None:
             raise StudentNotFoundError(student_id)

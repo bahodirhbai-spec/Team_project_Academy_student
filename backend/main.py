@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from backend.config import Settings, get_settings
+from backend.config.settings import Settings, get_settings
 from backend.database import Database
 from backend.routes import router
 

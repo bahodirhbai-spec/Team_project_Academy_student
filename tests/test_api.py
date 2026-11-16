@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.config import Settings
+from backend.config.settings import Settings
 from backend.main import create_app
 
 HASAN = {"name": "Hasan", "topic": "Python", "status": "Active", "score": 80}

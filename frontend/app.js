@@ -156,7 +156,6 @@ function createStudentRow(student) {
     return row;
 }
 
-// ----- Hasan: edit mode for one row -----
 function createEditRow(student) {
     const row = document.createElement("tr");
     row.className = "editing-row";
@@ -198,7 +197,6 @@ function createEditRow(student) {
     return row;
 }
 
-// ----- Hasan: summary boxes -----
 function renderSummary(summary) {
     elements.totalCount.textContent = summary.total_students;
     elements.activeCount.textContent = summary.active_students;
@@ -234,7 +232,6 @@ async function refreshPage() {
 
 // ===== Event handlers =====
 
-// ----- Bahodirjon: add a student -----
 async function handleFormSubmit(event) {
     event.preventDefault();  // stop the browser from reloading the page
     showMessage(elements.formError, "");
@@ -261,7 +258,6 @@ async function handleFormSubmit(event) {
     }
 }
 
-// ----- Hasan: update a student -----
 async function handleUpdateStudent(studentId, changes) {
     showMessage(elements.tableError, "");
     try {
@@ -276,5 +272,5 @@ async function handleUpdateStudent(studentId, changes) {
 // ===== Start =====
 
 elements.form.addEventListener("submit", handleFormSubmit);
-elements.statusFilter.addEventListener("change", loadStudents);  // Hasan
+elements.statusFilter.addEventListener("change", loadStudents);
 refreshPage();  // on every page load, ask the API for saved students

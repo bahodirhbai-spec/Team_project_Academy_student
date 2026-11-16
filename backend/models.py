@@ -15,7 +15,7 @@ from pydantic import (
     model_validator,
 )
 
-from backend.config import (
+from backend.config.business_rules import (
     MAX_SCORE,
     MAX_TEXT_LENGTH,
     MIN_SCORE,

@@ -1,4 +1,4 @@
-"""Start the server with the host and port from config.py.
+"""Start the server with the host and port from config/settings.py.
 
 Run from the project root with:
     python -m backend
@@ -6,7 +6,7 @@ Run from the project root with:
 
 import uvicorn
 
-from backend.config import get_settings
+from backend.config.settings import get_settings
 
 
 def main() -> None:

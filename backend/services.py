@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from backend.config import StudentStatus
+from backend.config.business_rules import StudentStatus
 from backend.models import Student, Summary
 
 

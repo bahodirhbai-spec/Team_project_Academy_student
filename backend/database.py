@@ -5,9 +5,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from backend.config import MAX_SCORE, MIN_SCORE, StudentStatus
+from backend.config.business_rules import MAX_SCORE, MIN_SCORE, StudentStatus
 
-# Built from the business rules in config.py, so they are written in
+# Built from config/business_rules.py, so each rule is written in
 # exactly one place. They are our own constants, not user input, so
 # putting them into the SQL text is safe.
 _ALLOWED_STATUSES = ", ".join(f"'{status.value}'" for status in StudentStatus)

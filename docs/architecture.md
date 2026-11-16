@@ -17,7 +17,9 @@ the API again instead of trusting what is on the screen.
 
 ```
 backend/
-  config.py      ALL configuration: settings (.env) + business rules
+  config/        All configurable values, in two files:
+    settings.py        where the app runs: .env, port, paths
+    business_rules.py  score range, text length, statuses
   models.py      Pydantic models: data format and validation
   database.py    SQLite connection and table creation
   repository.py  All SQL queries for students
@@ -38,13 +40,25 @@ docs/            Detailed documentation (this folder)
 
 Each file has one responsibility, and dependencies point inward:
 
-| Layer                | File(s)                    | Knows about            |
-|----------------------|----------------------------|------------------------|
-| Rules and settings   | `config.py`                | nothing in the project |
-| Domain models        | `models.py`                | `config.py`            |
-| Business logic       | `services.py`              | models                 |
-| Data access          | `database.py`, `repository.py` | models, config     |
-| Web (HTTP)           | `routes.py`, `main.py`     | everything above       |
+| Layer (inner → outer) | File(s)                          | Knows about              |
+|-----------------------|----------------------------------|--------------------------|
+| Business rules        | `config/business_rules.py`       | nothing in the project   |
+| Domain models         | `models.py`                      | business rules           |
+| Business logic        | `services.py`                    | models, business rules   |
+| Data access           | `database.py`, `repository.py`   | models, business rules   |
+| Web (HTTP)            | `routes.py`                      | everything above, settings |
+| Startup ("Main")      | `main.py`, `__main__.py`, `config/settings.py` | everything |
+
+The two config files sit at opposite ends on purpose. The business
+rules are the innermost layer, so they import nothing. The settings
+read `.env` and the environment, which makes them part of the
+outermost layer, the startup code (Clean Architecture calls it
+"Main"). Keeping them in separate files means `models.py` can import
+the rules without loading `.env`. `config/__init__.py` is kept empty
+for the same reason.
+
+All SQL stays in `database.py` and `repository.py` (Clean
+Architecture: "all SQL should be restricted to this layer").
 
 Consequences:
 
@@ -70,13 +84,13 @@ Consequences:
 
 ## Configuration vs business rules
 
-`config.py` has two parts:
+The `config/` folder has two files:
 
-- **Settings** (`Settings` class, pydantic-settings): host, port,
+- **Settings** (`config/settings.py`, pydantic-settings): host, port,
   database path and similar. They depend on the computer, so they can be
   overridden in `.env` or with `ACADEMY_*` environment variables.
-- **Business rules** (constants and `StudentStatus`): score range, text
-  length, allowed statuses. They are edited only in `config.py`. Both
+- **Business rules** (`config/business_rules.py`): score range, text
+  length, allowed statuses. They are edited only in that file. Both
   the Pydantic validation and the SQLite `CHECK` constraints are built
   from them, so each rule is written once.
 

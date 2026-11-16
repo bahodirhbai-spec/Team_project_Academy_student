@@ -25,8 +25,8 @@ validates data with Pydantic and stores it in SQLite.
   outside 0–100; errors are shown on the page.
 - Persistent storage — SQLite database file; data survives browser
   refresh and server restart.
-- Central configuration — all settings and business rules in
-  `backend/config.py`, settings overridable via `.env`.
+- Central configuration — everything in `backend/config/`: settings
+  (overridable via `.env`) and business rules, in separate files.
 - Automated tests — pytest suite covering every endpoint and rule.
 
 ## Ownership
@@ -99,12 +99,12 @@ cp .env.example .env
 Every value is optional and documented with comments in
 [`.env.example`](.env.example), which is the source of truth. All
 variables use the `ACADEMY_` prefix. The defaults live in
-[`backend/config.py`](backend/config.py).
+[`backend/config/settings.py`](backend/config/settings.py).
 
 Business rules (score range 0–100, allowed statuses, text length) are
-**not** environment variables. Change them in `backend/config.py`,
-section "Business rules", then delete `students.db` so the table is
-recreated with the new database rules.
+**not** environment variables. Change them in
+`backend/config/business_rules.py`, then delete `students.db` so the
+table is recreated with the new database rules.
 
 ## Common Commands
 
