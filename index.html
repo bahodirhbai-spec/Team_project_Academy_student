@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Akademiya o'quvchilari</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+    <!-- ===== Yuqori panel (sarlavha chiziq bilan ajratilgan) ===== -->
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand">
+                <span class="logo">A</span>
+                <h1>Akademiya <span>o'quvchilari</span></h1>
+            </div>
+            <p class="tagline">O'qish jarayonini kuzatish paneli</p>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- ===== HASAN: xulosa bloki ===== -->
+        <section id="summary">
+            <div class="stat stat-total">Jami o'quvchilar: <span id="total-count">0</span></div>
+            <div class="stat stat-active">Faol o'quvchilar: <span id="active-count">0</span></div>
+            <div class="stat stat-average">O'rtacha baho: <span id="average-score">No scores yet.</span></div>
+        </section>
+
+        <!-- ===== BAHODIRJON: o'quvchi qo'shish formasi ===== -->
+        <section id="add-section">
+            <h2>O'quvchi qo'shish</h2>
+            <form id="student-form">
+                <div class="field">
+                    <label for="name">Ism</label>
+                    <input id="name" name="name" type="text" placeholder="Masalan: Bahodirjon" required>
+                </div>
+                <div class="field">
+                    <label for="topic">Joriy mavzu</label>
+                    <input id="topic" name="topic" type="text" placeholder="Masalan: Python" required>
+                </div>
+                <div class="field">
+                    <label for="status">Holat</label>
+                    <select id="status" name="status">
+                        <option value="Active">Active</option>
+                        <option value="Paused">Paused</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="score">Oxirgi quiz bahosi (0-100)</label>
+                    <input id="score" name="score" type="number" min="0" max="100" placeholder="0 dan 100 gacha">
+                </div>
+                
+            </form>
+        </section>
+
+        <!-- ===== HASAN: holat bo'yicha filtr ===== -->
+        <section id="filter_section">
+            <label for="status-filter">Holat bo'yicha:</label>
+            <select id="status-filter">
+                <option value="">Barchasi</option>
+                <option value="Active">Active</option>
+                <option value="Paused">Paused</option>
+                <option value="Completed">Completed</option>
+            </select>
+
+            <div class="form-actions">
+                    <button type="submit">Save</button>
+                    <p id="form-error" class="error"></p>
+            </div>
+        </section>
+
+        <!-- ===== BAHODIRJON: o'quvchilar jadvali ===== -->
+        <section id="list-section">
+            <h2>O'quvchilar ro'yxati</h2>
+            <div class="table-wrap">
+                <table id="students-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Ism</th>
+                            <th>Joriy mavzu</th>
+                            <th>Holat</th>
+                            <th>Baho</th>
+                            <!-- HASAN: "Tahrirlash" ustuni shu yerga -->
+                        </tr>
+                    </thead>
+                    <tbody id="students-body">
+                        <!-- qatorlarni JavaScript to'ldiradi -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <span class="logo">A</span>
+                <div>
+                    <strong>Akademiya o'quvchilari</strong>
+                    <p>O'qish jarayonini kuzatish paneli</p>
+                </div>
+            </div>
+            <ul class="footer-tech">
+                <li>HTML</li>
+                <li>CSS</li>
+                <li>JavaScript</li>
+                <li>FastAPI</li>
+                <li>SQLite</li>
+            </ul>
+        </div>
+        <p class="footer-copy">&copy; 2026 Akademiya o'quvchilari &middot; Bahodirjon va Hasan loyihasi</p>
+    </footer>
+</body>
+</html>

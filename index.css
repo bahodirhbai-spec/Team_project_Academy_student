@@ -1,0 +1,349 @@
+/* ===== Ranglar va umumiy sozlamalar ===== */
+:root {
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --border: #e3e7ec;
+    --text: #1b2430;
+    --muted: #5a6472;
+    --accent: #2f5bea;
+    --accent-dark: #2448c4;
+    --danger: #b42318;
+    --shadow: 0 1px 3px rgba(27, 36, 48, 0.08);
+    --page-width: 1400px; /* panel, asosiy qism va footer uchun BITTA umumiy kenglik */
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+h2 {
+    margin: 0 0 20px;
+    padding-bottom: 12px;
+    font-size: 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* ===== Yuqori panel ===== */
+.topbar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+
+.topbar-inner {
+    max-width: var(--page-width);
+    margin: 0 auto;
+    padding: 0 16px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.brand h1 {
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.2;
+}
+
+.brand h1 span { color: var(--accent); }
+
+.tagline {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+/* ===== Asosiy qism ===== */
+.container {
+    flex: 1;
+    width: 100%;
+    max-width: var(--page-width);
+    margin: 0 auto;
+    padding: 50px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+}
+
+/* ===== HASAN: xulosa ===== */
+#summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+}
+
+.stat {
+    flex: 1 1 200px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--accent);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: var(--muted);
+    box-shadow: var(--shadow);
+}
+
+.stat-active  { border-left-color: #1e7a4c; }
+.stat-average { border-left-color: #d98e04; }
+
+.stat span {
+    display: block;
+    margin-top: 4px;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* ===== BAHODIRJON: forma (ikki ustunli) ===== */
+#student-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-actions { grid-column: 1 / -1; }
+
+/* Save tugmasi filtr qatorida, o'ng tomonda */
+#filter_section button,
+#filter_section .form-actions {
+    margin-left: auto;   /* qolgan bo'sh joyni chapga qoldirib, tugmani o'ngga suradi */
+}
+
+#filter_section button {
+    height: 44px;        /* tanlov maydoni bilan bir xil balandlik */
+}
+
+label { font-size: 13px; font-weight: 600; }
+
+input,
+select {
+    height: 44px;
+    padding: 0 12px;
+    font-size: 14px;
+    border: 1px solid #c5ccd3;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+}
+
+input:focus,
+select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+button {
+    height: 46px;
+    padding: 0 40px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+button:hover { background: var(--accent-dark); }
+
+.error {
+    margin: 10px 0 0;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--danger);
+    background: #fdecea;
+    border: 1px solid #f5c2bd;
+    border-radius: 8px;
+}
+
+.error:empty { display: none; }
+
+/* ===== HASAN: filtr (id: filter_section) ===== */
+#filter_section {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+}
+
+#filter_section select { width: 240px; }
+
+/* ===== BAHODIRJON: jadval ===== */
+.table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+/* Ustun kengliklari (Hasan "Tahrirlash" ustunini qo'shsa, u qolgan joyni oladi) */
+th:nth-child(1), td:nth-child(1) { width: 80px; }
+th:nth-child(2), td:nth-child(2) { width: 24%; }
+th:nth-child(3), td:nth-child(3) { width: 28%; }
+th:nth-child(4), td:nth-child(4) { width: 18%; }
+th:nth-child(5), td:nth-child(5) { width: 12%; }
+
+th {
+    padding: 14px 24px;
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
+
+td {
+    padding: 18px 24px;
+    font-size: 15px;
+    border-bottom: 1px solid #eef0f3;
+}
+
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+tbody tr:hover { background: #f0f5ff; }
+
+/* Bo'sh holat qatori: <tr class="empty-row"><td colspan="5">...</td></tr> */
+.empty-row td {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--muted);
+}
+
+/* Holat belgilari: <span class="badge status-Active">Active</span> */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-Active    { background: #e4f4ea; color: #1e7a4c; }
+.status-Paused    { background: #fcefd2; color: #7a4f00; }
+.status-Completed { background: #e3eafb; color: #24448f; }
+
+/* ===== Pastki qism ===== */
+.footer {
+    margin-top: 24px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+}
+
+.footer-inner {
+    max-width: var(--page-width);
+    margin: 0 auto;
+    padding: 32px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.footer-brand strong { font-size: 16px; }
+
+.footer-brand p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.footer-tech {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.footer-tech li {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-dark);
+    background: #e3eafb;
+    border-radius: 999px;
+}
+
+.footer-copy {
+    margin: 0;
+    padding: 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+}
+
+/* ===== Telefon uchun ===== */
+@media (max-width: 640px) {
+    .tagline { display: none; }
+    .footer-inner { flex-direction: column; align-items: flex-start; }
+    #student-form { grid-template-columns: 1fr; }
+    section { padding: 18px; }
+    button { width: 100%; }
+}
