@@ -52,7 +52,6 @@
                     <label for="score">Oxirgi quiz bahosi (0-100)</label>
                     <input id="score" name="score" type="number" min="0" max="100" placeholder="0 dan 100 gacha">
                 </div>
-                
             </form>
         </section>
 
@@ -67,14 +66,17 @@
             </select>
 
             <div class="form-actions">
-                    <button type="submit">Save</button>
+                    <!-- form="student-form": tugma formadan tashqarida bo'lsa ham shu formani yuboradi -->
+                    <button type="submit" form="student-form">Save</button>
                     <p id="form-error" class="error"></p>
+                    <p id="form-success" class="success"></p>
             </div>
         </section>
 
         <!-- ===== BAHODIRJON: o'quvchilar jadvali ===== -->
         <section id="list-section">
             <h2>O'quvchilar ro'yxati</h2>
+            <p id="table-error" class="error"></p>
             <div class="table-wrap">
                 <table id="students-table">
                     <thead>
@@ -84,7 +86,7 @@
                             <th>Joriy mavzu</th>
                             <th>Holat</th>
                             <th>Baho</th>
-                            <!-- HASAN: "Tahrirlash" ustuni shu yerga -->
+                            <th>Tahrirlash</th>
                         </tr>
                     </thead>
                     <tbody id="students-body">
@@ -115,5 +117,7 @@
         </div>
         <p class="footer-copy">&copy; 2026 Akademiya o'quvchilari &middot; Bahodirjon va Hasan loyihasi</p>
     </footer>
+
+    <script src="app.js"></script>
 </body>
 </html>
