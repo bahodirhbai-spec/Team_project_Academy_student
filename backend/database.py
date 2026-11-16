@@ -1,21 +1,24 @@
-"""Database setup: where the SQLite file lives and how to connect."""
+"""Database setup: how to connect to SQLite and create the table."""
 
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DATABASE_PATH = PROJECT_ROOT / "students.db"
+from backend.models import MAX_SCORE, MIN_SCORE, StudentStatus
 
-CREATE_STUDENTS_TABLE = """
+# Built from the constants in models.py, so the rules are written in
+# exactly one place. They are our own constants, not user input, so
+# putting them into the SQL text is safe.
+_ALLOWED_STATUSES = ", ".join(f"'{status.value}'" for status in StudentStatus)
+
+CREATE_STUDENTS_TABLE = f"""
     CREATE TABLE IF NOT EXISTS students (
         id     INTEGER PRIMARY KEY AUTOINCREMENT,
         name   TEXT    NOT NULL,
         topic  TEXT    NOT NULL,
-        status TEXT    NOT NULL
-               CHECK (status IN ('Active', 'Paused', 'Completed')),
-        score  INTEGER CHECK (score BETWEEN 0 AND 100)
+        status TEXT    NOT NULL CHECK (status IN ({_ALLOWED_STATUSES})),
+        score  INTEGER CHECK (score BETWEEN {MIN_SCORE} AND {MAX_SCORE})
     )
 """
 
@@ -23,7 +26,7 @@ CREATE_STUDENTS_TABLE = """
 class Database:
     """Knows where the SQLite file is and how to open it."""
 
-    def __init__(self, path: Path = DEFAULT_DATABASE_PATH) -> None:
+    def __init__(self, path: Path) -> None:
         self.path = path
 
     @contextmanager

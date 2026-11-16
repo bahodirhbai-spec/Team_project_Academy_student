@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.config import Settings
 from backend.main import create_app
 
 HASAN = {"name": "Hasan", "topic": "Python", "status": "Active", "score": 80}
@@ -20,7 +21,8 @@ BAHODIR = {
 @pytest.fixture
 def client(tmp_path: Path) -> Iterator[TestClient]:
     """A test client whose app uses a temporary SQLite file."""
-    with TestClient(create_app(tmp_path / "test.db")) as test_client:
+    settings = Settings(database_path=tmp_path / "test.db")
+    with TestClient(create_app(settings)) as test_client:
         yield test_client
 
 
@@ -64,10 +66,10 @@ def test_invalid_student_is_rejected(client: TestClient, bad_field: dict):
 
 
 def test_data_survives_app_restart(tmp_path: Path):
-    database_path = tmp_path / "persist.db"
-    with TestClient(create_app(database_path)) as first_run:
+    settings = Settings(database_path=tmp_path / "persist.db")
+    with TestClient(create_app(settings)) as first_run:
         add_student(first_run, HASAN)
-    with TestClient(create_app(database_path)) as second_run:
+    with TestClient(create_app(settings)) as second_run:
         assert len(second_run.get("/api/students").json()) == 1
 
 

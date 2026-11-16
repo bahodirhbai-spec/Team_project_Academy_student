@@ -27,12 +27,27 @@ Run the tests:
 The data is saved in `students.db` (SQLite). It stays after refreshing the
 browser or restarting the server. Delete that file to start empty.
 
+## Configuration
+
+Settings live in `backend/config.py` (read with pydantic-settings).
+Override them without changing code, with an environment variable or a
+`.env` file (copy `.env.example` to `.env`):
+
+```bash
+ACADEMY_DATABASE_PATH=/tmp/demo.db .venv/bin/uvicorn backend.main:app
+```
+
+Business rules (score 0–100, allowed statuses, max text length) are not
+configuration. They are part of the problem, so they live in
+`backend/models.py`, and the database `CHECK` rules are built from them.
+
 ## Project structure
 
 ```
 backend/
+  config.py      Settings: database path, frontend folder
   models.py      Pydantic models: data format and validation rules
-  database.py    SQLite file location, connection, table creation
+  database.py    SQLite connection and table creation
   repository.py  All SQL queries for students
   services.py    Business logic: summary, average with NumPy
   routes.py      The 4 API endpoints

@@ -6,20 +6,19 @@ Run from the project root with:
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import DEFAULT_DATABASE_PATH, PROJECT_ROOT, Database
+from backend.config import Settings, get_settings
+from backend.database import Database
 from backend.routes import router
 
-FRONTEND_DIRECTORY = PROJECT_ROOT / "frontend"
 
-
-def create_app(database_path: Path = DEFAULT_DATABASE_PATH) -> FastAPI:
-    """Build the app. Tests pass a different path for a temporary DB."""
-    database = Database(database_path)
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Build the app. Tests pass their own Settings (temporary DB)."""
+    settings = settings or get_settings()
+    database = Database(settings.database_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -33,7 +32,7 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH) -> FastAPI:
     # Mounted last, so the /api routes above take priority.
     app.mount(
         "/",
-        StaticFiles(directory=FRONTEND_DIRECTORY, html=True),
+        StaticFiles(directory=settings.frontend_directory, html=True),
         name="frontend",
     )
     return app
