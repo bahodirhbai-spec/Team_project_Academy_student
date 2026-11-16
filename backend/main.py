@@ -25,7 +25,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         database.create_tables()  # runs once when the server starts
         yield
 
-    app = FastAPI(title="Academy Students", lifespan=lifespan)
+    app = FastAPI(title=settings.app_title, lifespan=lifespan)
+    app.state.settings = settings
     app.state.database = database
     app.include_router(router)
     # Serve index.html, index.css and app.js at "/".

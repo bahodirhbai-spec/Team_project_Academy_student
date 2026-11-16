@@ -12,7 +12,8 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
 # 2. Start the server (from the project root folder).
-.venv/bin/uvicorn backend.main:app --reload
+#    Host, port and reload come from backend/config.py / .env.
+.venv/bin/python -m backend
 
 # 3. Open the website:  http://127.0.0.1:8000
 #    Interactive API docs: http://127.0.0.1:8000/docs
@@ -34,18 +35,29 @@ Override them without changing code, with an environment variable or a
 `.env` file (copy `.env.example` to `.env`):
 
 ```bash
-ACADEMY_DATABASE_PATH=/tmp/demo.db .venv/bin/uvicorn backend.main:app
+ACADEMY_PORT=9000 ACADEMY_DATABASE_PATH=/tmp/demo.db .venv/bin/python -m backend
 ```
 
-Business rules (score 0–100, allowed statuses, max text length) are not
-configuration. They are part of the problem, so they live in
-`backend/models.py`, and the database `CHECK` rules are built from them.
+| Setting                    | Default            | Meaning                         |
+|----------------------------|--------------------|---------------------------------|
+| `ACADEMY_APP_TITLE`        | `Academy Students` | Name shown in the API docs      |
+| `ACADEMY_HOST`             | `127.0.0.1`        | Address the server listens on   |
+| `ACADEMY_PORT`             | `8000`             | Port the server listens on      |
+| `ACADEMY_RELOAD`           | `true`             | Restart when code changes       |
+| `ACADEMY_DATABASE_PATH`    | `students.db`      | SQLite file                     |
+| `ACADEMY_AVERAGE_DECIMALS` | `2`                | Decimals in the average score   |
+
+Business rules (score 0–100, text length, allowed statuses) are also in
+`backend/config.py`, in the "Business rules" section. Change them by
+editing that file (not `.env`). The validation and the database `CHECK`
+rules are built from them. After changing a rule, delete `students.db`,
+because an existing table keeps its old `CHECK` rules.
 
 ## Project structure
 
 ```
 backend/
-  config.py      Settings: database path, frontend folder
+  config.py      ALL configuration: settings + business rules
   models.py      Pydantic models: data format and validation rules
   database.py    SQLite connection and table creation
   repository.py  All SQL queries for students

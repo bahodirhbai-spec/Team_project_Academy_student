@@ -6,8 +6,9 @@ directly. If we ever change databases, only this file changes.
 
 import sqlite3
 
+from backend.config import StudentStatus
 from backend.database import Database
-from backend.models import Student, StudentCreate, StudentStatus, StudentUpdate
+from backend.models import Student, StudentCreate, StudentUpdate
 
 SELECT_COLUMNS = "SELECT id, name, topic, status, score FROM students"
 

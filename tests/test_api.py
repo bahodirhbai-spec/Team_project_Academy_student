@@ -132,3 +132,13 @@ def test_summary_counts_and_average(client: TestClient):
         "active_students": 2,
         "average_score": 75.0,  # (80 + 70) / 2, the missing score is skipped
     }
+
+
+def test_average_decimals_comes_from_settings(tmp_path: Path):
+    settings = Settings(
+        database_path=tmp_path / "decimals.db", average_decimals=0
+    )
+    with TestClient(create_app(settings)) as client:
+        add_student(client, {**HASAN, "score": 80})
+        add_student(client, {**HASAN, "score": 85})
+        assert client.get("/api/summary").json()["average_score"] == 82

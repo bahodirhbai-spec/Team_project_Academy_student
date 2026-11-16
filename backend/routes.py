@@ -11,10 +11,10 @@ from fastapi import (
     status,
 )
 
+from backend.config import Settings, StudentStatus
 from backend.models import (
     Student,
     StudentCreate,
-    StudentStatus,
     StudentUpdate,
     Summary,
 )
@@ -29,7 +29,13 @@ def get_repository(request: Request) -> StudentRepository:
     return StudentRepository(request.app.state.database)
 
 
+def get_app_settings(request: Request) -> Settings:
+    """Give each endpoint the settings the app was created with."""
+    return request.app.state.settings
+
+
 Repository = Annotated[StudentRepository, Depends(get_repository)]
+AppSettings = Annotated[Settings, Depends(get_app_settings)]
 # The URL uses "?status=", but "status" is already the name of the
 # imported fastapi.status module, so the Python variable gets another name.
 StatusFilter = Annotated[StudentStatus | None, Query(alias="status")]
@@ -71,6 +77,8 @@ def update_student(
 
 
 @router.get("/summary", response_model=Summary)
-def get_summary(repository: Repository) -> Summary:
+def get_summary(repository: Repository, settings: AppSettings) -> Summary:
     """Return total students, active students, and average score."""
-    return calculate_summary(repository.list_all())
+    return calculate_summary(
+        repository.list_all(), decimals=settings.average_decimals
+    )

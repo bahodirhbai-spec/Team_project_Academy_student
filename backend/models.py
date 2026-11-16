@@ -5,7 +5,6 @@ the backend. FastAPI uses them to validate incoming JSON and to build
 the JSON responses.
 """
 
-from enum import Enum
 from typing import Any
 
 from pydantic import (
@@ -16,17 +15,13 @@ from pydantic import (
     model_validator,
 )
 
-MIN_SCORE = 0
-MAX_SCORE = 100
-MAX_TEXT_LENGTH = 100
-
-
-class StudentStatus(str, Enum):
-    """The only statuses a student is allowed to have."""
-
-    ACTIVE = "Active"
-    PAUSED = "Paused"
-    COMPLETED = "Completed"
+from backend.config import (
+    MAX_SCORE,
+    MAX_TEXT_LENGTH,
+    MIN_SCORE,
+    MIN_TEXT_LENGTH,
+    StudentStatus,
+)
 
 
 class StudentCreate(BaseModel):
@@ -35,8 +30,12 @@ class StudentCreate(BaseModel):
     # Strip spaces first, so "   " becomes "" and fails min_length.
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    name: str = Field(min_length=1, max_length=MAX_TEXT_LENGTH)
-    topic: str = Field(min_length=1, max_length=MAX_TEXT_LENGTH)
+    name: str = Field(
+        min_length=MIN_TEXT_LENGTH, max_length=MAX_TEXT_LENGTH
+    )
+    topic: str = Field(
+        min_length=MIN_TEXT_LENGTH, max_length=MAX_TEXT_LENGTH
+    )
     status: StudentStatus
     score: int | None = Field(default=None, ge=MIN_SCORE, le=MAX_SCORE)
 
@@ -50,7 +49,9 @@ class StudentUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     topic: str | None = Field(
-        default=None, min_length=1, max_length=MAX_TEXT_LENGTH
+        default=None,
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_TEXT_LENGTH,
     )
     status: StudentStatus | None = None
     score: int | None = Field(default=None, ge=MIN_SCORE, le=MAX_SCORE)
