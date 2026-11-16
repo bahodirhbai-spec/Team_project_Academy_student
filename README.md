@@ -1,126 +1,231 @@
-# Akademiya o'quvchilari — Academy Student Tracker
+# Academy Student Progress Tracker
 
-A one-page website to track academy students and their learning progress.
-Built with HTML, CSS, JavaScript, Python FastAPI, Pydantic, NumPy and SQLite.
+## Purpose
 
-## Run it
+This repository provides a one-page web application for tracking academy
+students and their learning progress: each student's current topic,
+status and latest quiz score.
+
+It exists as an academy team project to practise the full web flow —
+an HTML/JavaScript page that calls a Python FastAPI backend, which
+validates data with Pydantic and stores it in SQLite.
+
+## ✨ Features
+
+- Add students — form that saves a student; the API returns it with a
+  generated ID.
+- Student table — lists all students loaded from the backend on every
+  page load.
+- Update students — inline edit of topic, status and quiz score
+  (`PATCH`).
+- Status filter — shows only `Active`, `Paused` or `Completed` students.
+- Summary — total students, active students and average quiz score
+  (calculated in Python with NumPy).
+- Validation — rejects blank names/topics, unknown statuses and scores
+  outside 0–100; errors are shown on the page.
+- Persistent storage — SQLite database file; data survives browser
+  refresh and server restart.
+- Central configuration — all settings and business rules in
+  `backend/config.py`, settings overridable via `.env`.
+- Automated tests — pytest suite covering every endpoint and rule.
+
+## Ownership
+
+- Team: Academy student team
+- Maintainers:
+  - Hasan — updating students, filtering, summary (frontend + backend)
+  - Bahodirjon — adding and listing students, form, database operations
+
+## Project Status
+
+Active development — academy training project, not used in production.
+
+## Prerequisites
+
+- [Python](https://www.python.org/downloads/) 3.12+ — application
+  runtime (tested with 3.12.3). Includes SQLite through the built-in
+  `sqlite3` module, so no separate database server is needed.
+- [Git](https://git-scm.com/downloads) 2.0+ — to clone the repository.
+- A modern web browser (Chrome, Firefox, Edge) — to use the page and its
+  DevTools Network tab.
+
+Python packages are installed from `requirements.txt` (pinned versions):
+[FastAPI](https://fastapi.tiangolo.com/),
+[Uvicorn](https://www.uvicorn.org/),
+[Pydantic](https://docs.pydantic.dev/),
+[pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/),
+[NumPy](https://numpy.org/),
+[pytest](https://docs.pytest.org/),
+[HTTPX](https://www.python-httpx.org/) (used by the test client) and
+[pycodestyle](https://pycodestyle.pycqa.org/) (PEP 8 checker).
+
+No credentials or external services are required.
+
+## Quick Start
 
 ```bash
-# 1. Create a virtual environment (a private folder for this project's
-#    Python packages) and install the packages. Only needed once.
+git clone https://github.com/bahodirhbai-spec/Team_project_Academy_student.git
+cd Team_project_Academy_student
+git checkout my-new-branch   # until the work is merged into Academy_student
+
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+source .venv/bin/activate
 
-# 2. Start the server (from the project root folder).
-#    Host, port and reload come from backend/config.py / .env.
-.venv/bin/python -m backend
+pip install -r requirements.txt
+cp .env.example .env
 
-# 3. Open the website:  http://127.0.0.1:8000
-#    Interactive API docs: http://127.0.0.1:8000/docs
+pytest
+python -m backend
 ```
 
-Run the tests:
+Verify: open <http://127.0.0.1:8000> in a browser, or run in a second
+terminal:
 
 ```bash
-.venv/bin/python -m pytest
+curl http://127.0.0.1:8000/api/summary
+# {"total_students":0,"active_students":0,"average_score":null}
 ```
 
-The data is saved in `students.db` (SQLite). It stays after refreshing the
-browser or restarting the server. Delete that file to start empty.
+Stop the server with `Ctrl+C`.
 
 ## Configuration
 
-Settings live in `backend/config.py` (read with pydantic-settings).
-Override them without changing code, with an environment variable or a
-`.env` file (copy `.env.example` to `.env`):
+Copy `.env.example` to `.env` (already done in Quick Start):
 
 ```bash
-ACADEMY_PORT=9000 ACADEMY_DATABASE_PATH=/tmp/demo.db .venv/bin/python -m backend
+cp .env.example .env
 ```
 
-| Setting                    | Default            | Meaning                         |
-|----------------------------|--------------------|---------------------------------|
-| `ACADEMY_APP_TITLE`        | `Academy Students` | Name shown in the API docs      |
-| `ACADEMY_HOST`             | `127.0.0.1`        | Address the server listens on   |
-| `ACADEMY_PORT`             | `8000`             | Port the server listens on      |
-| `ACADEMY_RELOAD`           | `true`             | Restart when code changes       |
-| `ACADEMY_DATABASE_PATH`    | `students.db`      | SQLite file                     |
-| `ACADEMY_AVERAGE_DECIMALS` | `2`                | Decimals in the average score   |
+Every value is optional and documented with comments in
+[`.env.example`](.env.example), which is the source of truth. All
+variables use the `ACADEMY_` prefix. The defaults live in
+[`backend/config.py`](backend/config.py).
 
-Business rules (score 0–100, text length, allowed statuses) are also in
-`backend/config.py`, in the "Business rules" section. Change them by
-editing that file (not `.env`). The validation and the database `CHECK`
-rules are built from them. After changing a rule, delete `students.db`,
-because an existing table keeps its old `CHECK` rules.
+Business rules (score range 0–100, allowed statuses, text length) are
+**not** environment variables. Change them in `backend/config.py`,
+section "Business rules", then delete `students.db` so the table is
+recreated with the new database rules.
 
-## Project structure
+## Common Commands
 
-```
-backend/
-  config.py      ALL configuration: settings + business rules
-  models.py      Pydantic models: data format and validation rules
-  database.py    SQLite connection and table creation
-  repository.py  All SQL queries for students
-  services.py    Business logic: summary, average with NumPy
-  routes.py      The 4 API endpoints
-  main.py        Builds the app and serves the frontend
-frontend/
-  index.html     The page
-  index.css      The styles
-  app.js         Calls the API and updates the page
-tests/
-  test_api.py    Automated tests for every endpoint and rule
+Run from the project root with the virtual environment activated
+(`source .venv/bin/activate`).
+
+```bash
+python -m backend                    # start the server (settings from .env)
+ACADEMY_PORT=8001 python -m backend  # start on another port
+pytest                               # run all tests
+pytest -v                            # run tests, show each test name
+pycodestyle backend tests            # check PEP 8 style
+deactivate                           # leave the virtual environment
 ```
 
-## Data format (agreed by both teammates)
+Interactive API docs (try every endpoint in the browser):
+<http://127.0.0.1:8000/docs>
 
-Student:
+## Usage Examples
 
-```json
-{ "id": 1, "name": "Hasan", "topic": "Python", "status": "Active", "score": 80 }
+With the server running:
+
+```bash
+# Add a student (returns it with its generated id)
+curl -X POST http://127.0.0.1:8000/api/students \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Hasan","topic":"Python","status":"Active","score":80}'
+
+# List all students, or only one status
+curl http://127.0.0.1:8000/api/students
+curl "http://127.0.0.1:8000/api/students?status=Active"
+
+# Update only the fields you send
+curl -X PATCH http://127.0.0.1:8000/api/students/1 \
+  -H "Content-Type: application/json" \
+  -d '{"status":"Completed","score":95}'
+
+# Summary: counts and average score
+curl http://127.0.0.1:8000/api/summary
 ```
 
-- `name`, `topic`: required, cannot be blank
-- `status`: `Active`, `Paused` or `Completed`
-- `score`: whole number 0–100, or `null` (no score yet)
+Full data format, endpoints and error responses:
+[docs/api.md](docs/api.md).
 
-Summary:
+## Testing and Quality
 
-```json
-{ "total_students": 3, "active_students": 2, "average_score": 76.67 }
+Run these before opening a PR:
+
+```bash
+pytest                       # all tests must pass
+pycodestyle backend tests    # no output means PEP 8 is respected
 ```
 
-`average_score` is `null` when nobody has a score ("No scores yet.").
+Tests use a temporary database, so they never touch your `students.db`.
+Reviewers must also run the teammate's branch locally (Quick Start)
+before approving a PR.
 
-## Endpoints
+## Troubleshooting
 
-| Method | Path                     | Purpose                                   | Owner      |
-|--------|--------------------------|-------------------------------------------|------------|
-| POST   | `/api/students`          | Add a student (returns it with its ID)    | Bahodirjon |
-| GET    | `/api/students`          | List students; `?status=Active` filters   | Bahodirjon / Hasan |
-| PATCH  | `/api/students/{id}`     | Update topic, status and/or score         | Hasan      |
-| GET    | `/api/summary`           | Counts and NumPy average score            | Hasan      |
+### `ModuleNotFoundError: No module named 'fastapi'`
 
-Invalid data gets **422** with an explanation; an unknown ID gets **404**.
-The webpage shows these errors in red.
+The virtual environment is not active. Run `source .venv/bin/activate`,
+then `pip install -r requirements.txt`.
 
-## Request flow (add a student)
+### `ModuleNotFoundError: No module named 'backend'`
 
-1. The user fills in the form and clicks **Save**.
-2. `app.js` sends `POST /api/students` with the student as JSON.
-3. FastAPI validates it with the `StudentCreate` Pydantic model.
-4. `StudentRepository.add` runs `INSERT` in SQLite and gets the new ID.
-5. The API returns the saved student including `id` (status 201).
-6. `app.js` shows a success message and reloads the table and summary.
-7. On every page load, `app.js` calls `GET /api/students` again.
+The command was run from another folder. `cd` into the project root
+(the folder that contains `backend/`) and run it again.
 
-## Demo checklist
+### `address already in use` on port 8000
 
-1. Add three students, for example with scores 80, 70 and 90.
-2. Edit one of them (the "Tahrirlash" button) and save.
-3. Use the status filter.
-4. Check the average: (80 + 70 + 90) / 3 = 80.
-5. Stop the server (Ctrl+C), start it again, reload the page:
-   the students are still there.
-6. Open DevTools (F12) → **Network** tab, click Save, then click the
-   `students` request to show the Payload (sent) and Response (received).
+Another program is using the port. Start on a different port instead of
+stopping the other program:
+
+```bash
+ACADEMY_PORT=8001 python -m backend
+```
+
+Or set `ACADEMY_PORT=8001` in `.env`.
+
+### Page shows an error or the table stays empty
+
+Open DevTools (F12) → **Network**, reload the page and click the
+`students` request. Check its status code and response; the server
+terminal also prints each request.
+
+### A changed business rule is not applied
+
+SQLite keeps the old `CHECK` rules inside the existing `students.db`.
+Back up the file if you need its data, then delete it and restart the
+server; a new table is created with the new rules. **This deletes all
+saved students.**
+
+## Related Docs / References
+
+Project docs:
+
+- [docs/api.md](docs/api.md) — data format, endpoints, error responses.
+- [docs/architecture.md](docs/architecture.md) — folder structure,
+  layers, request flow from page to database.
+- [docs/demo.md](docs/demo.md) — demo checklist and Network tab
+  walkthrough.
+
+External references:
+
+- [FastAPI documentation](https://fastapi.tiangolo.com/) — API
+  framework.
+- [Pydantic documentation](https://docs.pydantic.dev/) — data models
+  and validation.
+- [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)
+  — reading `.env` and environment variables.
+- [Python `sqlite3` module](https://docs.python.org/3/library/sqlite3.html)
+  — database access.
+- [NumPy `mean`](https://numpy.org/doc/stable/reference/generated/numpy.mean.html)
+  — average score calculation.
+- [PEP 8](https://peps.python.org/pep-0008/) — Python style guide
+  followed in this repository.
+- [MDN Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
+  — how the page calls the backend.
+
+## Support / Contact
+
+- [Open a repository issue](https://github.com/bahodirhbai-spec/Team_project_Academy_student/issues)
+  for bugs, questions or documentation problems.
