@@ -1,0 +1,85 @@
+"""Pydantic models: the shape and validation rules of our data.
+
+These models are the "data format agreement" between the frontend and
+the backend. FastAPI uses them to validate incoming JSON and to build
+the JSON responses.
+"""
+
+from enum import Enum
+from typing import Any
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+MIN_SCORE = 0
+MAX_SCORE = 100
+MAX_TEXT_LENGTH = 100
+
+
+class StudentStatus(str, Enum):
+    """The only statuses a student is allowed to have."""
+
+    ACTIVE = "Active"
+    PAUSED = "Paused"
+    COMPLETED = "Completed"
+
+
+class StudentCreate(BaseModel):
+    """Data the frontend sends when adding a new student."""
+
+    # Strip spaces first, so "   " becomes "" and fails min_length.
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=MAX_TEXT_LENGTH)
+    topic: str = Field(min_length=1, max_length=MAX_TEXT_LENGTH)
+    status: StudentStatus
+    score: int | None = Field(default=None, ge=MIN_SCORE, le=MAX_SCORE)
+
+
+class StudentUpdate(BaseModel):
+    """Data the frontend sends when updating a student (PATCH).
+
+    Every field is optional: only the fields that are sent get changed.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    topic: str | None = Field(
+        default=None, min_length=1, max_length=MAX_TEXT_LENGTH
+    )
+    status: StudentStatus | None = None
+    score: int | None = Field(default=None, ge=MIN_SCORE, le=MAX_SCORE)
+
+    @field_validator("topic", "status", mode="before")
+    @classmethod
+    def reject_explicit_null(cls, value: Any) -> Any:
+        """Topic and status may be left out, but never set to null."""
+        if value is None:
+            raise ValueError("cannot be empty")
+        return value
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(self) -> "StudentUpdate":
+        """An update with no fields would do nothing, so reject it."""
+        if not self.model_fields_set:
+            raise ValueError("send at least one of: topic, status, score")
+        return self
+
+
+class Student(StudentCreate):
+    """A student as stored in the database (it now has an ID)."""
+
+    id: int
+
+
+class Summary(BaseModel):
+    """Numbers shown in the summary boxes on the webpage."""
+
+    total_students: int
+    active_students: int
+    average_score: float | None  # None means "No scores yet."
