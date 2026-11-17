@@ -6,7 +6,6 @@ const API_BASE_URL = "/api";
 const STUDENT_STATUSES = ["Active", "Paused", "Completed"];
 const NO_SCORES_TEXT = "No scores yet.";
 const NO_STUDENTS_TEXT = "Hozircha o'quvchilar yo'q";
-const NO_MATCH_TEXT = "Qidiruvga mos o'quvchi topilmadi";
 const TABLE_COLUMN_COUNT = 6;
 
 const elements = {
@@ -14,16 +13,12 @@ const elements = {
     formError: document.getElementById("form-error"),
     formSuccess: document.getElementById("form-success"),
     statusFilter: document.getElementById("status-filter"),
-    searchInput: document.getElementById("search-input"),
     tableBody: document.getElementById("students-body"),
     tableError: document.getElementById("table-error"),
     totalCount: document.getElementById("total-count"),
     activeCount: document.getElementById("active-count"),
     averageScore: document.getElementById("average-score"),
 };
-
-// Students returned by the last API call; searching filters this in the browser.
-let studentsCache = [];
 
 
 // ===== API: the only code that calls fetch() =====
@@ -125,10 +120,10 @@ function createStatusSelect(selectedStatus) {
 
 // ===== Rendering the table =====
 
-function renderStudents(students, emptyText = NO_STUDENTS_TEXT) {
+function renderStudents(students) {
     elements.tableBody.replaceChildren();
     if (students.length === 0) {
-        elements.tableBody.append(createEmptyRow(emptyText));
+        elements.tableBody.append(createEmptyRow());
         return;
     }
     for (const student of students) {
@@ -136,10 +131,10 @@ function renderStudents(students, emptyText = NO_STUDENTS_TEXT) {
     }
 }
 
-function createEmptyRow(text) {
+function createEmptyRow() {
     const row = document.createElement("tr");
     row.className = "empty-row";
-    const cell = createCell(text);
+    const cell = createCell(NO_STUDENTS_TEXT);
     cell.colSpan = TABLE_COLUMN_COUNT;
     row.append(cell);
     return row;
@@ -212,30 +207,10 @@ function renderSummary(summary) {
 
 // ===== Loading data from the API =====
 
-// Case-insensitive search in the name and topic columns.
-function matchesSearch(student, query) {
-    if (!query) {
-        return true;
-    }
-    const needle = query.toLocaleLowerCase();
-    return (
-        student.name.toLocaleLowerCase().includes(needle) ||
-        student.topic.toLocaleLowerCase().includes(needle)
-    );
-}
-
-function renderFilteredStudents() {
-    const query = elements.searchInput.value.trim();
-    const filtered = studentsCache.filter((student) =>
-        matchesSearch(student, query)
-    );
-    renderStudents(filtered, query ? NO_MATCH_TEXT : NO_STUDENTS_TEXT);
-}
-
 async function loadStudents() {
     try {
-        studentsCache = await api.listStudents(elements.statusFilter.value);
-        renderFilteredStudents();
+        const students = await api.listStudents(elements.statusFilter.value);
+        renderStudents(students);
         showMessage(elements.tableError, "");
     } catch (error) {
         showMessage(elements.tableError, error.message);
@@ -298,5 +273,4 @@ async function handleUpdateStudent(studentId, changes) {
 
 elements.form.addEventListener("submit", handleFormSubmit);
 elements.statusFilter.addEventListener("change", loadStudents);
-elements.searchInput.addEventListener("input", renderFilteredStudents);
 refreshPage();  // on every page load, ask the API for saved students
