@@ -218,6 +218,29 @@ button:hover { background: var(--accent-dark); }
 
 #filter_section select { width: 240px; }
 
+/* Qidiruv "O'quvchilar ro'yxati" sarlavhasining o'ng tomonida */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.section-header h2 {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.section-header input[type="search"] {
+    width: 320px;
+    max-width: 100%;
+    height: 40px;
+}
+
 /* ===== BAHODIRJON: jadval ===== */
 .table-wrap {
     overflow-x: auto;
@@ -232,11 +255,11 @@ table {
     table-layout: fixed;
 }
 
-/* Ustun kengliklari (Hasan "Tahrirlash" ustunini qo'shsa, u qolgan joyni oladi) */
+/* Ustun kengliklari ("Tahrirlash" ustuni qolgan joyni oladi) */
 th:nth-child(1), td:nth-child(1) { width: 80px; }
-th:nth-child(2), td:nth-child(2) { width: 24%; }
-th:nth-child(3), td:nth-child(3) { width: 28%; }
-th:nth-child(4), td:nth-child(4) { width: 18%; }
+th:nth-child(2), td:nth-child(2) { width: 20%; }
+th:nth-child(3), td:nth-child(3) { width: 22%; }
+th:nth-child(4), td:nth-child(4) { width: 16%; }
 th:nth-child(5), td:nth-child(5) { width: 12%; }
 
 th {
@@ -279,6 +302,43 @@ tbody tr:hover { background: #f0f5ff; }
 .status-Active    { background: #e4f4ea; color: #1e7a4c; }
 .status-Paused    { background: #fcefd2; color: #7a4f00; }
 .status-Completed { background: #e3eafb; color: #24448f; }
+
+/* ===== HASAN: tahrirlash (edit) ===== */
+.button-small {
+    height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+}
+
+.button-secondary {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.button-secondary:hover { background: var(--border); }
+
+.row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.editing-row td { padding: 10px 24px; }
+.editing-row input,
+.editing-row select { width: 100%; }
+
+.success {
+    margin: 10px 0 0;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #1e7a4c;
+    background: #e4f4ea;
+    border: 1px solid #b7e1c7;
+    border-radius: 8px;
+}
+
+.success:empty { display: none; }
 
 /* ===== Pastki qism ===== */
 .footer {
@@ -344,6 +404,9 @@ tbody tr:hover { background: #f0f5ff; }
     .tagline { display: none; }
     .footer-inner { flex-direction: column; align-items: flex-start; }
     #student-form { grid-template-columns: 1fr; }
+    #filter_section select { width: 100%; }
+    .section-header { flex-direction: column; align-items: flex-start; }
+    .section-header input[type="search"] { width: 100%; }
     section { padding: 18px; }
     button { width: 100%; }
 }
