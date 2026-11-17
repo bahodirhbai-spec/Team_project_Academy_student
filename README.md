@@ -66,7 +66,6 @@ No credentials or external services are required.
 ```bash
 git clone https://github.com/bahodirhbai-spec/Team_project_Academy_student.git
 cd Team_project_Academy_student
-git checkout dev   # until the work is merged into Academy_student
 
 python3 -m venv .venv
 source .venv/bin/activate
