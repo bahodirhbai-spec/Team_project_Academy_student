@@ -144,14 +144,10 @@ def test_average_decimals_comes_from_settings(tmp_path: Path):
         assert client.get("/api/summary").json()["average_score"] == 82
 
 
-
-def add_student(client, name, status="Active", topic="Python", score=70):
-    response = client.post(
-        "/api/students",
-        json={"name": name, "topic": topic, "status": status, "score": score},
-    )
-    assert response.status_code in (200, 201)
-    return response.json()
+def add_students_named(client: TestClient, *names: str) -> None:
+    """Add one active Python student for each given name."""
+    for name in names:
+        add_student(client, {**HASAN, "name": name})
 
 
 def names(response):
@@ -159,47 +155,50 @@ def names(response):
 
 
 def test_partial_and_case_insensitive_search(client):
-    add_student(client, "Ali")
-    add_student(client, "Aliya")
-    add_student(client, "Bob")
-    assert sorted(names(client.get("/api/students?search=ali"))) == ["Ali", "Aliya"]
-    assert sorted(names(client.get("/api/students?search=ALI"))) == ["Ali", "Aliya"]
+    add_students_named(client, "Ali", "Aliya", "Bob")
+    assert sorted(names(client.get("/api/students?search=ali"))) == [
+        "Ali", "Aliya"
+    ]
+    assert sorted(names(client.get("/api/students?search=ALI"))) == [
+        "Ali", "Aliya"
+    ]
 
 
 def test_search_ignores_surrounding_spaces(client):
-    add_student(client, "Ali")
+    add_students_named(client, "Ali", "Bob")
     assert names(client.get("/api/students?search=%20%20ali%20")) == ["Ali"]
 
 
 def test_search_combined_with_status(client):
-    add_student(client, "Ali", status="Active")
-    add_student(client, "Aliya", status="Paused")
+    add_student(client, {**HASAN, "name": "Ali", "status": "Active"})
+    add_student(client, {**HASAN, "name": "Aliya", "status": "Paused"})
+    add_student(client, {**HASAN, "name": "Bob", "status": "Active"})
     response = client.get("/api/students?search=ali&status=Active")
     assert names(response) == ["Ali"]
 
 
 def test_sort_name_asc(client):
-    for name in ["Charlie", "alice", "Bob"]:
-        add_student(client, name)
-    assert names(client.get("/api/students?sort=name_asc")) == ["alice", "Bob", "Charlie"]
+    add_students_named(client, "Charlie", "alice", "Bob")
+    assert names(client.get("/api/students?sort=name_asc")) == [
+        "alice", "Bob", "Charlie"
+    ]
 
 
 def test_sort_name_desc(client):
-    for name in ["Charlie", "alice", "Bob"]:
-        add_student(client, name)
-    assert names(client.get("/api/students?sort=name_desc")) == ["Charlie", "Bob", "alice"]
+    add_students_named(client, "Charlie", "alice", "Bob")
+    assert names(client.get("/api/students?sort=name_desc")) == [
+        "Charlie", "Bob", "alice"
+    ]
 
 
 def test_search_with_sort(client):
-    add_student(client, "Aliya")
-    add_student(client, "Ali")
-    add_student(client, "Bob")
+    add_students_named(client, "Aliya", "Ali", "Bob")
     response = client.get("/api/students?search=ali&sort=name_asc")
     assert names(response) == ["Ali", "Aliya"]
 
 
 def test_no_matching_students_returns_empty_list(client):
-    add_student(client, "Ali")
+    add_students_named(client, "Ali")
     response = client.get("/api/students?search=zzz")
     assert response.status_code == 200
     assert response.json() == []
@@ -211,12 +210,12 @@ def test_invalid_sort_is_rejected(client):
 
 
 def test_percent_sign_is_not_a_wildcard(client):
-    add_student(client, "Ali")
+    add_students_named(client, "Ali")
     assert client.get("/api/students?search=%25").json() == []
 
 
 def test_get_existing_student(client):
-    created = add_student(client, "Ali")
+    created = add_student(client, {**HASAN, "name": "Ali"})
     response = client.get(f"/api/students/{created['id']}")
     assert response.status_code == 200
     assert response.json()["name"] == "Ali"
@@ -229,6 +228,5 @@ def test_get_nonexistent_student_returns_404(client):
 
 
 def test_no_parameters_keeps_existing_behaviour(client):
-    add_student(client, "Bob")
-    add_student(client, "Ali")
+    add_students_named(client, "Bob", "Ali")
     assert names(client.get("/api/students")) == ["Bob", "Ali"]

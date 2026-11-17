@@ -6,11 +6,32 @@ directly. If we ever change databases, only this file changes.
 
 import sqlite3
 
-from backend.config.business_rules import StudentStatus
 from backend.database import Database
-from backend.models import Student, StudentCreate, StudentUpdate
+from backend.models import (
+    Student,
+    StudentCreate,
+    StudentQuery,
+    StudentSort,
+    StudentUpdate,
+)
 
 SELECT_STUDENTS_SQL = "SELECT id, name, topic, status, score FROM students"
+
+ALL_STUDENTS = StudentQuery()
+
+# Fixed SQL pieces picked by the enum value, never built from user text.
+ORDER_BY_SQL = {
+    None: "id",
+    StudentSort.NAME_ASC: "name COLLATE NOCASE ASC, id",
+    StudentSort.NAME_DESC: "name COLLATE NOCASE DESC, id",
+}
+
+# instr() looks for plain text, so "%" and "_" are not wildcards
+# (with LIKE they would mean "any characters").
+SEARCH_SQL = (
+    "(instr(lower(name), :search) > 0"
+    " OR instr(lower(topic), :search) > 0)"
+)
 
 
 class StudentNotFoundError(Exception):
@@ -38,16 +59,21 @@ class StudentRepository:
             )
         return Student(id=cursor.lastrowid, **data)
 
-    def list_all(self, status: StudentStatus | None = None) -> list[Student]:
-        """Return all students, or only those with the given status."""
+    def list_all(self, query: StudentQuery = ALL_STUDENTS) -> list[Student]:
+        """Return the students that match the query, in its order."""
+        conditions: list[str] = []
+        values: dict[str, str] = {}
+        if query.status is not None:
+            conditions.append("status = :status")
+            values["status"] = query.status.value
+        if query.search is not None:
+            conditions.append(SEARCH_SQL)
+            values["search"] = query.search.lower()
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+        order_by = ORDER_BY_SQL[query.sort]
+        sql = f"{SELECT_STUDENTS_SQL}{where} ORDER BY {order_by}"
         with self._database.connect() as connection:
-            if status is None:
-                rows = connection.execute(f"{SELECT_STUDENTS_SQL} ORDER BY id")
-            else:
-                rows = connection.execute(
-                    f"{SELECT_STUDENTS_SQL} WHERE status = ? ORDER BY id",
-                    (status.value,),
-                )
+            rows = connection.execute(sql, values)
             return [_row_to_student(row) for row in rows]
 
     def get(self, student_id: int) -> Student:
