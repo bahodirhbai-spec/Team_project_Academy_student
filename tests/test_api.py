@@ -169,6 +169,13 @@ def test_search_ignores_surrounding_spaces(client):
     assert names(client.get("/api/students?search=%20%20ali%20")) == ["Ali"]
 
 
+def test_search_does_not_match_topic(client):
+    add_student(client, {**HASAN, "name": "Aziz", "topic": "Ali algebra"})
+    add_student(client, {**HASAN, "name": "Ali", "topic": "Python"})
+    assert names(client.get("/api/students?search=ali")) == ["Ali"]
+    assert client.get("/api/students?search=python").json() == []
+
+
 def test_search_combined_with_status(client):
     add_student(client, {**HASAN, "name": "Ali", "status": "Active"})
     add_student(client, {**HASAN, "name": "Aliya", "status": "Paused"})

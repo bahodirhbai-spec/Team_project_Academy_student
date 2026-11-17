@@ -42,7 +42,7 @@ score; the page then shows "No scores yet."
 |--------|----------------------|-----------------------------------------|---------|------------|
 | POST   | `/api/students`      | Add a student; returns it with its `id` | 201     | Bahodirjon |
 | GET    | `/api/students`      | List students (optional filters below)  | 200     | Bahodirjon |
-| GET    | `/api/students/{id}` | Get one student by `id`                 | 200     | Hasan      |
+| GET    | `/api/students/{id}` | Get one student by `id`                 | 200     | Bahodirjon |
 | PATCH  | `/api/students/{id}` | Update `topic`, `status` and/or `score` | 200     | Hasan      |
 | GET    | `/api/summary`       | Counts and average score                | 200     | Hasan      |
 
@@ -54,13 +54,13 @@ students are returned ordered by `id`.
 | Parameter | Values                                | Meaning                                      |
 |-----------|---------------------------------------|----------------------------------------------|
 | `status`  | `Active`, `Paused`, `Completed`       | Keep only students with this status          |
-| `search`  | any text (blank = no filter)          | Case-insensitive match in `name` or `topic`  |
+| `search`  | any text (blank = no filter)          | Case-insensitive partial match in `name`     |
 | `sort`    | `name_asc`, `name_desc`               | Sort by name, ignoring upper/lower case      |
 
 ```text
 GET /api/students?status=Active
 GET /api/students?search=ali
-GET /api/students?search=python&sort=name_desc
+GET /api/students?search=ali&sort=name_desc
 GET /api/students?search=ali&status=Active&sort=name_asc
 ```
 

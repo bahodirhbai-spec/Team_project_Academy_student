@@ -212,16 +212,13 @@ function renderSummary(summary) {
 
 // ===== Loading data from the API =====
 
-// Case-insensitive search in the name and topic columns.
+// Case-insensitive search in the name column.
 function matchesSearch(student, query) {
     if (!query) {
         return true;
     }
     const needle = query.toLocaleLowerCase();
-    return (
-        student.name.toLocaleLowerCase().includes(needle) ||
-        student.topic.toLocaleLowerCase().includes(needle)
-    );
+    return student.name.toLocaleLowerCase().includes(needle);
 }
 
 function renderFilteredStudents() {

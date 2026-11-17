@@ -26,12 +26,9 @@ ORDER_BY_SQL = {
     StudentSort.NAME_DESC: "name COLLATE NOCASE DESC, id",
 }
 
-# instr() looks for plain text, so "%" and "_" are not wildcards
+# instr() looks for plain text in the name, so "%" and "_" are not wildcards
 # (with LIKE they would mean "any characters").
-SEARCH_SQL = (
-    "(instr(lower(name), :search) > 0"
-    " OR instr(lower(topic), :search) > 0)"
-)
+SEARCH_SQL = "instr(lower(name), :search) > 0"
 
 
 class StudentNotFoundError(Exception):
