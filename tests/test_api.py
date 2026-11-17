@@ -142,3 +142,98 @@ def test_average_decimals_comes_from_settings(tmp_path: Path):
         add_student(client, {**HASAN, "score": 80})
         add_student(client, {**HASAN, "score": 85})
         assert client.get("/api/summary").json()["average_score"] == 82
+
+
+def add_students_named(client: TestClient, *names: str) -> None:
+    """Add one active Python student for each given name."""
+    for name in names:
+        add_student(client, {**HASAN, "name": name})
+
+
+def names(response):
+    return [student["name"] for student in response.json()]
+
+
+def test_partial_and_case_insensitive_search(client):
+    add_students_named(client, "Ali", "Aliya", "Bob")
+    assert sorted(names(client.get("/api/students?search=ali"))) == [
+        "Ali", "Aliya"
+    ]
+    assert sorted(names(client.get("/api/students?search=ALI"))) == [
+        "Ali", "Aliya"
+    ]
+
+
+def test_search_ignores_surrounding_spaces(client):
+    add_students_named(client, "Ali", "Bob")
+    assert names(client.get("/api/students?search=%20%20ali%20")) == ["Ali"]
+
+
+def test_search_does_not_match_topic(client):
+    add_student(client, {**HASAN, "name": "Aziz", "topic": "Ali algebra"})
+    add_student(client, {**HASAN, "name": "Ali", "topic": "Python"})
+    assert names(client.get("/api/students?search=ali")) == ["Ali"]
+    assert client.get("/api/students?search=python").json() == []
+
+
+def test_search_combined_with_status(client):
+    add_student(client, {**HASAN, "name": "Ali", "status": "Active"})
+    add_student(client, {**HASAN, "name": "Aliya", "status": "Paused"})
+    add_student(client, {**HASAN, "name": "Bob", "status": "Active"})
+    response = client.get("/api/students?search=ali&status=Active")
+    assert names(response) == ["Ali"]
+
+
+def test_sort_name_asc(client):
+    add_students_named(client, "Charlie", "alice", "Bob")
+    assert names(client.get("/api/students?sort=name_asc")) == [
+        "alice", "Bob", "Charlie"
+    ]
+
+
+def test_sort_name_desc(client):
+    add_students_named(client, "Charlie", "alice", "Bob")
+    assert names(client.get("/api/students?sort=name_desc")) == [
+        "Charlie", "Bob", "alice"
+    ]
+
+
+def test_search_with_sort(client):
+    add_students_named(client, "Aliya", "Ali", "Bob")
+    response = client.get("/api/students?search=ali&sort=name_asc")
+    assert names(response) == ["Ali", "Aliya"]
+
+
+def test_no_matching_students_returns_empty_list(client):
+    add_students_named(client, "Ali")
+    response = client.get("/api/students?search=zzz")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_invalid_sort_is_rejected(client):
+    response = client.get("/api/students?sort=score_asc")
+    assert response.status_code == 422
+
+
+def test_percent_sign_is_not_a_wildcard(client):
+    add_students_named(client, "Ali")
+    assert client.get("/api/students?search=%25").json() == []
+
+
+def test_get_existing_student(client):
+    created = add_student(client, {**HASAN, "name": "Ali"})
+    response = client.get(f"/api/students/{created['id']}")
+    assert response.status_code == 200
+    assert response.json()["name"] == "Ali"
+
+
+def test_get_nonexistent_student_returns_404(client):
+    response = client.get("/api/students/9999")
+    assert response.status_code == 404
+    assert "9999" in response.json()["detail"]
+
+
+def test_no_parameters_keeps_existing_behaviour(client):
+    add_students_named(client, "Bob", "Ali")
+    assert names(client.get("/api/students")) == ["Bob", "Ali"]

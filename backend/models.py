@@ -5,6 +5,7 @@ the backend. FastAPI uses them to validate incoming JSON and to build
 the JSON responses.
 """
 
+from enum import Enum
 from typing import Any
 
 from pydantic import (
@@ -22,6 +23,29 @@ from backend.config.business_rules import (
     MIN_TEXT_LENGTH,
     StudentStatus,
 )
+
+
+class StudentSort(str, Enum):
+    """Allowed values of ?sort= when listing students."""
+
+    NAME_ASC = "name_asc"
+    NAME_DESC = "name_desc"
+
+
+class StudentQuery(BaseModel):
+    """Optional filters for GET /api/students."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, frozen=True)
+
+    status: StudentStatus | None = None
+    search: str | None = Field(default=None, max_length=MAX_TEXT_LENGTH)
+    sort: StudentSort | None = None
+
+    @field_validator("search")
+    @classmethod
+    def blank_search_means_no_search(cls, value: str | None) -> str | None:
+        """An empty search box shows every student, not none."""
+        return value or None
 
 
 class StudentCreate(BaseModel):

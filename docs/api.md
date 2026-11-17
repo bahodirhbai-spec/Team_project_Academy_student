@@ -41,10 +41,33 @@ score; the page then shows "No scores yet."
 | Method | Path                 | Purpose                                 | Success | Owner      |
 |--------|----------------------|-----------------------------------------|---------|------------|
 | POST   | `/api/students`      | Add a student; returns it with its `id` | 201     | Bahodirjon |
-| GET    | `/api/students`      | List students, ordered by `id`          | 200     | Bahodirjon |
-| GET    | `/api/students?status=Active` | List only one status           | 200     | Hasan      |
+| GET    | `/api/students`      | List students (optional filters below)  | 200     | Bahodirjon |
+| GET    | `/api/students/{id}` | Get one student by `id`                 | 200     | Bahodirjon |
 | PATCH  | `/api/students/{id}` | Update `topic`, `status` and/or `score` | 200     | Hasan      |
 | GET    | `/api/summary`       | Counts and average score                | 200     | Hasan      |
+
+### GET /api/students query parameters
+
+All parameters are optional and can be combined. Without any parameter,
+students are returned ordered by `id`.
+
+| Parameter | Values                                | Meaning                                      |
+|-----------|---------------------------------------|----------------------------------------------|
+| `status`  | `Active`, `Paused`, `Completed`       | Keep only students with this status          |
+| `search`  | any text (blank = no filter)          | Case-insensitive partial match in `name`     |
+| `sort`    | `name_asc`, `name_desc`               | Sort by name, ignoring upper/lower case      |
+
+```text
+GET /api/students?status=Active
+GET /api/students?search=ali
+GET /api/students?search=ali&sort=name_desc
+GET /api/students?search=ali&status=Active&sort=name_asc
+```
+
+- Surrounding spaces are stripped, so `search=%20ali%20` finds `Ali`.
+- Search matches plain text: `%` and `_` are ordinary characters, not
+  SQL wildcards.
+- Any other `sort` value (for example `score_asc`) is rejected with 422.
 
 ### PATCH rules
 
@@ -58,7 +81,8 @@ score; the page then shows "No scores yet."
 | Status | When                                              | `detail` format                    |
 |--------|---------------------------------------------------|------------------------------------|
 | 422    | Invalid data (blank name, bad status, score > 100) | List of `{loc, msg, ...}` objects |
-| 404    | `PATCH` on an `id` that does not exist            | Text: `"Student 7 not found"`      |
+| 422    | Unknown `sort` value (for example `score_asc`)     | List of `{loc, msg, ...}` objects |
+| 404    | `GET` or `PATCH` on an `id` that does not exist    | Text: `"Student 7 not found"`      |
 
 Example 422 response:
 

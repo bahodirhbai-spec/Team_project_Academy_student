@@ -11,11 +11,11 @@ from fastapi import (
     status,
 )
 
-from backend.config.business_rules import StudentStatus
 from backend.config.settings import Settings
 from backend.models import (
     Student,
     StudentCreate,
+    StudentQuery,
     StudentUpdate,
     Summary,
 )
@@ -37,9 +37,7 @@ def get_app_settings(request: Request) -> Settings:
 
 Repository = Annotated[StudentRepository, Depends(get_repository)]
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
-# The URL uses "?status=", but "status" is already the name of the
-# imported fastapi.status module, so the Python variable gets another name.
-StatusFilter = Annotated[StudentStatus | None, Query(alias="status")]
+StudentFilters = Annotated[StudentQuery, Query()]
 
 
 @router.post(
@@ -54,10 +52,21 @@ def add_student(new_student: StudentCreate, repository: Repository) -> Student:
 
 @router.get("/students", response_model=list[Student])
 def list_students(
-    repository: Repository, status_filter: StatusFilter = None
+    repository: Repository, filters: StudentFilters
 ) -> list[Student]:
-    """List all students; ?status=Active returns only active ones."""
-    return repository.list_all(status_filter)
+    """List students; ?status=, ?search= and ?sort= are optional."""
+    return repository.list_all(filters)
+
+
+@router.get("/students/{student_id}", response_model=Student)
+def get_student(student_id: int, repository: Repository) -> Student:
+    """Return one student, or 404 if the ID does not exist."""
+    try:
+        return repository.get(student_id)
+    except StudentNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(error)
+        ) from error
 
 
 @router.patch("/students/{student_id}", response_model=Student)
