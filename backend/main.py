@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.config.settings import Settings, get_settings
 from backend.database import Database
+from backend.profile_routes import router as profile_router
 from backend.project_routes import router as project_router
 from backend.routes import router
 from backend.topic_routes import router as topic_router
@@ -33,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(topic_router)
     app.include_router(project_router)
+    app.include_router(profile_router)
     # Serve index.html, index.css and app.js at "/".
     # Mounted last, so the /api routes above take priority.
     app.mount(

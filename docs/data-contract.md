@@ -179,3 +179,6 @@ the fixed catalogue order, so columns are stable even when counts are 0.
    with only a completed topic, and one with a completed linked project.
 3. Change each status in both directions and confirm the profile changes.
 4. Add a test for the teammate's area on the integration branch.
+
+The branch layout and the two cross-review tests are recorded in
+[pull-requests.md](pull-requests.md).

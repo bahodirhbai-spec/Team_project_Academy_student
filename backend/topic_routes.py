@@ -12,9 +12,10 @@ from backend.models import (
     TopicCreate,
     TopicStatusUpdate,
 )
+from backend.profile_service import build_combined_skill_summary
 from backend.repository import StudentNotFoundError
 from backend.topic_repository import DuplicateTopicError, TopicNotFoundError
-from backend.topic_service import UnknownTopicKeyError, build_skill_summary
+from backend.topic_service import UnknownTopicKeyError
 from backend.topic_service import add_topic as service_add_topic
 from backend.topic_service import list_catalogue, list_topics
 from backend.topic_service import update_topic_status as service_update_status
@@ -85,4 +86,4 @@ def patch_topic_status(
 @router.get("/skills/summary", response_model=SkillSummary)
 def get_skill_summary(database: DatabaseDep) -> SkillSummary:
     """Return the NumPy matrix, its counts and the pandas progress summary."""
-    return build_skill_summary(database)
+    return build_combined_skill_summary(database)

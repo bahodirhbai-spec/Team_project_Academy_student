@@ -7,17 +7,14 @@ lives here, so the summaries can be tested directly.
 import numpy as np
 import pandas as pd
 
-from backend.config.business_rules import (
-    ALL_SKILLS,
-    ProjectStatus,
-    TopicStatus,
-)
+from backend.config.business_rules import ProjectStatus, TopicStatus
 from backend.models import (
     Student,
     StudentProject,
     StudentTopic,
     SupportingProject,
 )
+from backend.topic_analytics import build_skill_matrix
 
 PROJECT_COLUMNS = (
     "project_id",
@@ -169,31 +166,13 @@ def supporting_projects_by_skill(
     return evidence
 
 
-def completion_matrix(
-    students: list[Student], topics: list[StudentTopic]
-) -> tuple[list[str], np.ndarray]:
-    """Build a 0/1 matrix from completed topics for NumPy column counts."""
-    skills = list(ALL_SKILLS)
-    matrix = np.zeros((len(students), len(skills)), dtype=np.int8)
-    positions = {student.id: index for index, student in enumerate(students)}
-    skill_positions = {skill: index for index, skill in enumerate(skills)}
-    for topic in topics:
-        if topic.status != TopicStatus.COMPLETED:
-            continue
-        row = positions.get(topic.student_id)
-        column = skill_positions.get(topic.skill)
-        if row is not None and column is not None:
-            matrix[row, column] = 1
-    return skills, matrix
-
-
 def students_per_applied_skill(
     students: list[Student],
     topics: list[StudentTopic],
     evidence: dict[tuple[int, str], list[SupportingProject]],
 ) -> dict[str, int]:
     """Count 1s in the matrix columns that have completed project evidence."""
-    skills, matrix = completion_matrix(students, topics)
+    skills, matrix = build_skill_matrix(students, topics)
     positions = {student.id: index for index, student in enumerate(students)}
     applied = np.zeros_like(matrix)
     for student_id, skill in evidence:
