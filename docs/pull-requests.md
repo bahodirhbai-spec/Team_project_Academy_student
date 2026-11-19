@@ -9,7 +9,7 @@ branches were built from it.
 | `feature/profile-contract` | agreed tables, status values, JSON models, pandas dependency | base |
 | `feature/bahodirjon-topics` | catalogue, learning records, pandas topic processing, NumPy matrix | `Merge PR: Bahodirjon ...` |
 | `feature/hasan-projects` | projects, topic links, pandas project summaries, NumPy applied counts | `Merge PR: Hasan ...` |
-| `feature/profile-integration` | generated labels, profile page, cross-review tests, docs | final integration branch |
+| `feature/profile-integration` | generated labels, profile page, cross-review tests, docs | merged into `dev` as `Merge PR: student profile feature into dev` |
 
 Commits use a neutral team identity because this workspace has a single
 Git identity. The branch names and the ownership table record who each
