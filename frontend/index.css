@@ -399,6 +399,131 @@ tbody tr:hover { background: #f0f5ff; }
     border-top: 1px solid var(--border);
 }
 
+/* ===== BAHODIRJON + HASAN: summary tables and profile ===== */
+#skills-section h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.summary-tables {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.compact-table {
+    min-width: 0;
+    margin-bottom: 22px;
+    table-layout: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.compact-table th,
+.compact-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+}
+
+.compact-table tbody tr:nth-child(even) { background: #fafbfc; }
+
+#profile-section[hidden],
+#list-section[hidden],
+#add-section[hidden],
+#filter_section[hidden],
+#skills-section[hidden] { display: none; }
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.profile-card {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+}
+
+.profile-card h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+
+.profile-card p {
+    margin: 4px 0;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.profile-card ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    font-size: 13px;
+}
+
+.profile-card li { margin-bottom: 6px; }
+
+.profile-card a { color: var(--accent-dark); }
+
+.skill-label {
+    display: inline-block;
+    margin: 0 0 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #e4f4ea;
+    color: #1e7a4c;
+}
+
+.skill-label.applied {
+    background: #e3eafb;
+    color: #24448f;
+}
+
+.profile-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    align-items: end;
+    margin: 12px 0 18px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fafbfc;
+}
+
+.profile-form button { width: auto; height: 44px; }
+
+.profile-form .wide { grid-column: 1 / -1; }
+
+.profile-list { margin: 0; padding: 0; list-style: none; }
+
+.profile-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef0f3;
+}
+
+.profile-list li:last-child { border-bottom: none; }
+
+.profile-list .grow { flex: 1 1 180px; }
+
+.profile-list select { height: 36px; }
+
+.empty-note {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+}
+
 /* ===== Telefon uchun ===== */
 @media (max-width: 640px) {
     .tagline { display: none; }
@@ -407,6 +532,9 @@ tbody tr:hover { background: #f0f5ff; }
     #filter_section select { width: 100%; }
     .section-header { flex-direction: column; align-items: flex-start; }
     .section-header input[type="search"] { width: 100%; }
+    .summary-tables { grid-template-columns: 1fr; }
+    .profile-form { grid-template-columns: 1fr; }
+    .profile-form button { width: 100%; }
     section { padding: 18px; }
     button { width: 100%; }
 }
