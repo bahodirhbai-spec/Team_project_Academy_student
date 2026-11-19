@@ -192,6 +192,11 @@ Tests use a temporary database, so they never touch your `students.db`.
 Reviewers must also run the teammate's branch locally (Quick Start)
 before approving a PR.
 
+**Never push directly to `dev`, `main` or `Academy_student`.** Work on a
+`feature/...` branch and open a PR. The full rule is in
+[AGENTS.md](AGENTS.md), with branch notes in
+[docs/pull-requests.md](docs/pull-requests.md).
+
 ## Troubleshooting
 
 ### `ModuleNotFoundError: No module named 'fastapi'`

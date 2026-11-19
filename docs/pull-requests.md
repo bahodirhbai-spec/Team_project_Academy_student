@@ -9,14 +9,18 @@ branches were built from it.
 | `feature/profile-contract` | agreed tables, status values, JSON models, pandas dependency | base |
 | `feature/bahodirjon-topics` | catalogue, learning records, pandas topic processing, NumPy matrix | `Merge PR: Bahodirjon ...` |
 | `feature/hasan-projects` | projects, topic links, pandas project summaries, NumPy applied counts | `Merge PR: Hasan ...` |
-| `feature/profile-integration` | generated labels, profile page, cross-review tests, docs | merged into `dev` as `Merge PR: student profile feature into dev` |
+| `feature/profile-integration` | generated labels, profile page, cross-review tests, docs | kept intact on the final feature branch |
+| `feature/student-profile-dashboard` | all of the above plus the no-direct-push rule | pushed for review; **do not push to `dev` or `main`** |
+
+The profile work was accidentally pushed to `dev` once. It was moved to
+`feature/student-profile-dashboard` and `dev` was restored to its previous
+commit (`21be005`). See `AGENTS.md`: never push directly to `dev`, `main`
+or `Academy_student`; use a feature branch and a reviewed PR instead.
 
 Commits use a neutral team identity because this workspace has a single
 Git identity. The branch names and the ownership table record who each
-part belongs to. These are local, PR-style merge commits; no GitHub PR
-was opened because this environment is not authenticated to GitHub. Push
-the branches and open/approve the real PRs when both teammates are
-available, using the notes below as the PR descriptions.
+part belongs to. The merge commits below are PR-style integration points
+kept on the feature branch, not on `dev`.
 
 ## Review evidence
 
