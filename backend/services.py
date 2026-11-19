@@ -28,6 +28,7 @@ def _average(scores: list[int], decimals: int) -> float | None:
         return None
     return round(float(np.mean(scores)), decimals)
 
+
 def list_students(database, status=None, search=None, sort=None):
     """Convenience wrapper used outside the API routes.
 

@@ -47,21 +47,25 @@ CREATE_STUDENT_TOPICS_TABLE = f"""
 
 CREATE_PROJECTS_TABLE = f"""
     CREATE TABLE IF NOT EXISTS projects (
-        id              INTEGER PRIMARY KEY AUTOINCREMENT,
-        student_id      INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-        title           TEXT    NOT NULL CHECK (length(trim(title)) > 0),
-        description     TEXT    NOT NULL CHECK (length(trim(description)) > 0),
-        contribution    TEXT    NOT NULL CHECK (length(trim(contribution)) > 0),
-        repository_link TEXT    NOT NULL CHECK (length(trim(repository_link)) > 0),
-        status          TEXT    NOT NULL
-                        CHECK (status IN ({_ALLOWED_PROJECT_STATUSES}))
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL
+                   REFERENCES students(id) ON DELETE CASCADE,
+        title      TEXT NOT NULL CHECK (length(trim(title)) > 0),
+        description TEXT NOT NULL CHECK (length(trim(description)) > 0),
+        contribution TEXT NOT NULL CHECK (length(trim(contribution)) > 0),
+        repository_link TEXT NOT NULL
+                        CHECK (length(trim(repository_link)) > 0),
+        status TEXT NOT NULL
+               CHECK (status IN ({_ALLOWED_PROJECT_STATUSES}))
     )
 """
 
 CREATE_PROJECT_TOPICS_TABLE = """
     CREATE TABLE IF NOT EXISTS project_topics (
-        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        topic_id   INTEGER NOT NULL REFERENCES student_topics(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL
+                   REFERENCES projects(id) ON DELETE CASCADE,
+        topic_id   INTEGER NOT NULL
+                   REFERENCES student_topics(id) ON DELETE CASCADE,
         PRIMARY KEY (project_id, topic_id)
     )
 """
