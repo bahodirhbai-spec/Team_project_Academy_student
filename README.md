@@ -42,9 +42,11 @@ Active development — academy training project, not used in production.
 
 ## Prerequisites
 
-- [Python](https://www.python.org/downloads/) 3.12+ — application
-  runtime (tested with 3.12.3). Includes SQLite through the built-in
-  `sqlite3` module, so no separate database server is needed.
+- [Python](https://www.python.org/downloads/release/python-3110/)
+  **3.11 only** — application runtime (tested with 3.11.18). See
+  [Python version (restricted)](#python-version-restricted) below.
+  Includes SQLite through the built-in `sqlite3` module, so no separate
+  database server is needed.
 - [Git](https://git-scm.com/downloads) 2.0+ — to clone the repository.
 - A modern web browser (Chrome, Firefox, Edge) — to use the page and its
   DevTools Network tab.
@@ -55,11 +57,38 @@ Python packages are installed from `requirements.txt` (pinned versions):
 [Pydantic](https://docs.pydantic.dev/),
 [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/),
 [NumPy](https://numpy.org/),
+[pandas](https://pandas.pydata.org/),
 [pytest](https://docs.pytest.org/),
 [HTTPX](https://www.python-httpx.org/) (used by the test client) and
 [pycodestyle](https://pycodestyle.pycqa.org/) (PEP 8 checker).
 
 No credentials or external services are required.
+
+### Python version (restricted)
+
+> **Company requirement: this project must run on Python 3.11.**
+> Do not use Python 3.12 or newer, and do not upgrade packages to
+> versions that drop Python 3.11.
+
+How it is enforced:
+
+- `.python-version` contains `3.11`, so tools such as `pyenv` and `uv`
+  pick the right interpreter automatically.
+- `backend/__init__.py` stops with a clear error if the code is run
+  on any other Python version (server, tests and scripts alike).
+- `requirements.txt` pins versions that support 3.11. For example,
+  NumPy is pinned to `2.4.6` because NumPy 2.5 requires Python 3.12+.
+
+Check your version with `python3.11 --version`. If it is missing:
+
+```bash
+# Ubuntu: Python 3.11 comes from the deadsnakes PPA
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt install python3.11 python3.11-venv
+
+# or, on any OS, with uv (https://docs.astral.sh/uv/)
+uv python install 3.11
+```
 
 ## Quick Start
 
@@ -67,8 +96,9 @@ No credentials or external services are required.
 git clone https://github.com/bahodirhbai-spec/Team_project_Academy_student.git
 cd Team_project_Academy_student
 
-python3 -m venv .venv
+python3.11 -m venv .venv      # 3.11 only, see "Python version"
 source .venv/bin/activate
+python --version              # must print Python 3.11.x
 
 pip install -r requirements.txt
 cp .env.example .env
@@ -162,6 +192,18 @@ Reviewers must also run the teammate's branch locally (Quick Start)
 before approving a PR.
 
 ## Troubleshooting
+
+### `RuntimeError: This project requires Python 3.11`
+
+The virtual environment was made with another Python version. Delete
+it and make it again with 3.11:
+
+```bash
+deactivate 2>/dev/null; rm -rf .venv
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 ### `ModuleNotFoundError: No module named 'fastapi'`
 
