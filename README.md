@@ -56,7 +56,7 @@ Python packages are installed from `requirements.txt` (pinned versions):
 [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/),
 [NumPy](https://numpy.org/),
 [pytest](https://docs.pytest.org/),
-[HTTPX](https://www.python-httpx.org/) (used by the test client) and
+[HTTPX2](https://github.com/pydantic/httpx2) (used by the test client) and
 [pycodestyle](https://pycodestyle.pycqa.org/) (PEP 8 checker).
 
 No credentials or external services are required.
