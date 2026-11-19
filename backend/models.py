@@ -340,6 +340,37 @@ class StudentsPerSkill(BaseModel):
     count: int
 
 
+# ----- Project summaries (Hasan) -----
+
+
+class StudentProjectCount(BaseModel):
+    """pandas project summary for one student."""
+
+    student_id: int
+    name: str
+    total_projects: int
+    completed_projects: int
+
+
+class AppliedSkillEvidence(BaseModel):
+    """Completed projects that prove a student applied one skill."""
+
+    skill: str
+    student_id: int
+    projects: list[SupportingProject]
+
+
+class ProjectSummary(BaseModel):
+    """Global project counts and skill evidence."""
+
+    total_projects: int
+    completed_projects: int
+    in_progress_projects: int
+    per_student: list[StudentProjectCount]
+    applied_skills: list[AppliedSkillEvidence]
+    students_per_applied_skill: list[StudentsPerSkill]
+
+
 class StudentProgress(BaseModel):
     """pandas summary of completed topics and projects per student."""
 
