@@ -1,4 +1,4 @@
-"""Tests for the topic catalogue and learning records.
+"""Tests for the topic catalogue, learning records and skill matrix.
 
 Owner: Bahodirjon. These exercise the API the same way the page does.
 """
@@ -36,6 +36,12 @@ def add_topic(
         json={"topic_key": topic_key, "status": status},
     )
     assert response.status_code == 201
+    return response.json()
+
+
+def summary(client: TestClient) -> dict:
+    response = client.get("/api/skills/summary")
+    assert response.status_code == 200
     return response.json()
 
 
@@ -89,6 +95,67 @@ def test_unknown_student_and_unknown_topic_key(topic_client: TestClient):
     assert unknown_key.status_code == 422
 
 
+def test_topic_status_change_recalculates_matrix(topic_client: TestClient):
+    student = add_student(topic_client)
+    topic = add_topic(topic_client, student["id"], "git-branches-prs")
+
+    result = summary(topic_client)
+    assert result["matrix"] == [[0, 1, 0, 0, 0]]
+    assert result["students_per_skill"][1] == {
+        "skill": "Git collaboration",
+        "count": 1,
+    }
+
+    response = topic_client.patch(
+        f"/api/students/{student['id']}/topics/{topic['id']}",
+        json={"status": "Learning"},
+    )
+    assert response.status_code == 200
+    assert summary(topic_client)["matrix"] == [[0, 0, 0, 0, 0]]
+
+
+def test_learning_topic_does_not_generate_a_skill(topic_client: TestClient):
+    student = add_student(topic_client)
+    add_topic(
+        topic_client,
+        student["id"],
+        "fastapi-endpoints-validation",
+        status="Learning",
+    )
+    result = summary(topic_client)
+    assert result["matrix"] == [[0, 0, 0, 0, 0]]
+    assert result["progress_per_student"][0]["learned_skills"] == 0
+
+
+def test_multiple_topics_for_one_skill_are_not_counted_twice(
+    topic_client: TestClient,
+):
+    student = add_student(topic_client)
+    add_topic(topic_client, student["id"], "python-functions-collections")
+    add_topic(topic_client, student["id"], "python-lists-dictionaries")
+
+    result = summary(topic_client)
+    assert result["matrix"][0][0] == 1  # Python basics column
+    assert result["students_per_skill"][0]["count"] == 1
+    assert result["progress_per_student"][0] == {
+        "student_id": student["id"],
+        "name": "Hasan",
+        "completed_topics": 2,
+        "completed_projects": 0,
+        "learned_skills": 1,
+    }
+
+
+def test_empty_database_has_no_matrix_rows(topic_client: TestClient):
+    result = summary(topic_client)
+    assert result["students"] == []
+    assert result["matrix"] == []
+    assert result["learned_skills_per_student"] == []
+    assert result["progress_per_student"] == []
+    assert len(result["skills"]) == 5
+    assert all(item["count"] == 0 for item in result["students_per_skill"])
+
+
 def test_patch_unknown_topic_returns_404(topic_client: TestClient):
     student = add_student(topic_client)
     response = topic_client.patch(
@@ -107,5 +174,4 @@ def test_topic_records_survive_restart(tmp_path: Path):
     with TestClient(create_app(settings)) as second:
         topics = second.get(f"/api/students/{student['id']}/topics").json()
         assert len(topics) == 1
-        assert topics[0]["topic_key"] == "numpy-arrays-operations"
-        assert topics[0]["skill"] == "NumPy basics"
+        assert summary(second)["matrix"][0][2] == 1

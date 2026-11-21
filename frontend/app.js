@@ -9,6 +9,7 @@ const PROJECT_STATUSES = ["In progress", "Completed"];
 const NO_SCORES_TEXT = "No scores yet.";
 const NO_STUDENTS_TEXT = "Hozircha o'quvchilar yo'q";
 const NO_MATCH_TEXT = "Qidiruvga mos o'quvchi topilmadi";
+const NO_DATA_TEXT = "Hozircha ma'lumot yo'q";
 const TABLE_COLUMN_COUNT = 7;
 
 const elements = {
@@ -25,6 +26,11 @@ const elements = {
     listSection: document.getElementById("list-section"),
     addSection: document.getElementById("add-section"),
     filterSection: document.getElementById("filter_section"),
+    skillsSection: document.getElementById("skills-section"),
+    skillsError: document.getElementById("skills-error"),
+    learnedSkillsBody: document.getElementById("learned-skills-body"),
+    studentsPerSkillBody: document.getElementById("students-per-skill-body"),
+    appliedSkillsBody: document.getElementById("applied-skills-body"),
     profileSection: document.getElementById("profile-section"),
     profileHeading: document.getElementById("profile-heading"),
     profileBack: document.getElementById("profile-back"),
@@ -36,6 +42,7 @@ const elements = {
 // Students returned by the last API call; searching filters this in the browser.
 let studentsCache = [];
 let catalogueCache = [];
+let projectSummaryCache = null;
 let currentProfileId = null;
 
 
@@ -102,6 +109,8 @@ const api = {
         }),
     getProfile: (studentId) =>
         requestJson(`/students/${studentId}/profile`),
+    getSkillSummary: () => requestJson("/skills/summary"),
+    getProjectSummary: () => requestJson("/projects/summary"),
 };
 
 
@@ -303,6 +312,49 @@ function renderSummary(summary) {
 }
 
 
+// ===== Rendering the two global summaries =====
+
+function renderSkillSummary(summary) {
+    elements.learnedSkillsBody.replaceChildren();
+    if (summary.progress_per_student.length === 0) {
+        elements.learnedSkillsBody.append(
+            createEmptyRow(NO_DATA_TEXT, 4)
+        );
+    } else {
+        for (const row of summary.progress_per_student) {
+            const tr = document.createElement("tr");
+            tr.append(
+                createCell(row.name),
+                createCell(row.completed_topics),
+                createCell(row.completed_projects),
+                createCell(row.learned_skills),
+            );
+            elements.learnedSkillsBody.append(tr);
+        }
+    }
+
+    elements.studentsPerSkillBody.replaceChildren();
+    for (const row of summary.students_per_skill) {
+        const tr = document.createElement("tr");
+        tr.append(createCell(row.skill), createCell(row.count));
+        elements.studentsPerSkillBody.append(tr);
+    }
+
+    elements.appliedSkillsBody.replaceChildren();
+    const applied = ((projectSummaryCache || {}).students_per_applied_skill || [])
+        .filter((row) => row.count > 0);
+    if (applied.length === 0) {
+        elements.appliedSkillsBody.append(createEmptyRow(NO_DATA_TEXT, 2));
+    } else {
+        for (const row of applied) {
+            const tr = document.createElement("tr");
+            tr.append(createCell(row.skill), createCell(row.count));
+            elements.appliedSkillsBody.append(tr);
+        }
+    }
+}
+
+
 // ===== Loading data from the API =====
 
 // Case-insensitive search in the name column.
@@ -340,6 +392,23 @@ async function loadSummary() {
     }
 }
 
+async function loadSkillSummary() {
+    try {
+        renderSkillSummary(await api.getSkillSummary());
+        showMessage(elements.skillsError, "");
+    } catch (error) {
+        showMessage(elements.skillsError, error.message);
+    }
+}
+
+async function loadProjectSummary() {
+    try {
+        projectSummaryCache = await api.getProjectSummary();
+    } catch (error) {
+        showMessage(elements.skillsError, error.message);
+    }
+}
+
 async function loadCatalogue() {
     try {
         catalogueCache = await api.getCatalogue();
@@ -353,6 +422,7 @@ async function refreshPage() {
         loadStudents(),
         loadSummary(),
         loadCatalogue(),
+        loadProjectSummary().then(loadSkillSummary),
     ]);
 }
 
@@ -364,6 +434,7 @@ function setProfileRoute(isProfile) {
         elements.listSection,
         elements.addSection,
         elements.filterSection,
+        elements.skillsSection,
     ]) {
         section.hidden = isProfile;
     }

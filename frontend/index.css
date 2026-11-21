@@ -399,11 +399,40 @@ tbody tr:hover { background: #f0f5ff; }
     border-top: 1px solid var(--border);
 }
 
-/* ===== Profile ===== */
+/* ===== BAHODIRJON + HASAN: summary tables and profile ===== */
+#skills-section h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.summary-tables {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.compact-table {
+    min-width: 0;
+    margin-bottom: 22px;
+    table-layout: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.compact-table th,
+.compact-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+}
+
+.compact-table tbody tr:nth-child(even) { background: #fafbfc; }
+
 #profile-section[hidden],
 #list-section[hidden],
 #add-section[hidden],
-#filter_section[hidden] { display: none; }
+#filter_section[hidden],
+#skills-section[hidden] { display: none; }
 
 .profile-grid {
     display: grid;
@@ -503,6 +532,7 @@ tbody tr:hover { background: #f0f5ff; }
     #filter_section select { width: 100%; }
     .section-header { flex-direction: column; align-items: flex-start; }
     .section-header input[type="search"] { width: 100%; }
+    .summary-tables { grid-template-columns: 1fr; }
     .profile-form { grid-template-columns: 1fr; }
     .profile-form button { width: 100%; }
     section { padding: 18px; }

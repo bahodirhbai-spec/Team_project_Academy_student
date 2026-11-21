@@ -1,4 +1,4 @@
-"""Tests for project records and topic links.
+"""Tests for project records, topic links and project summaries.
 
 Owner: Hasan. Learning records are seeded through the repository layer in
 this branch because the topic API is developed in parallel.
@@ -100,16 +100,12 @@ def test_two_students_can_describe_the_same_team_project(
             "contribution": "I set up the pull request review checklist.",
         },
     )
-    hasan_projects = project_client.get(
-        f"/api/students/{hasan['id']}/projects"
-    ).json()
-    bahodir_projects = project_client.get(
-        f"/api/students/{bahodir['id']}/projects"
-    ).json()
-    assert len(hasan_projects) == len(bahodir_projects) == 1
+    records = project_client.get("/api/projects/summary").json()
+    assert records["total_projects"] == 2
     contributions = {
-        hasan_projects[0]["contribution"],
-        bahodir_projects[0]["contribution"],
+        item["projects"][0]["contribution"]
+        for item in records["applied_skills"]
+        if item["projects"]
     }
     assert len(contributions) == 2
 
@@ -195,6 +191,60 @@ def test_invalid_project_updates_and_unknown_ids(project_client: TestClient):
         ).status_code
         == 404
     )
+
+
+def test_pandas_project_summary_counts_completed_work(
+    project_client: TestClient,
+):
+    hasan = add_student(project_client, "Hasan")
+    bahodir = add_student(project_client, "Bahodirjon")
+    topic = seed_topic(project_client, hasan["id"], "git-branches-prs")
+    add_project(
+        project_client,
+        hasan["id"],
+        project_payload([topic], status="Completed"),
+    )
+    add_project(project_client, bahodir["id"], project_payload([]))
+
+    result = project_client.get("/api/projects/summary").json()
+    assert result["total_projects"] == 2
+    assert result["completed_projects"] == 1
+    assert result["in_progress_projects"] == 1
+    counts = {row["name"]: row for row in result["per_student"]}
+    assert counts["Hasan"]["completed_projects"] == 1
+    assert counts["Bahodirjon"]["completed_projects"] == 0
+
+
+def test_numpy_applied_count_needs_completed_topic_and_project(
+    project_client: TestClient,
+):
+    student = add_student(project_client)
+    completed_topic = seed_topic(
+        project_client, student["id"], "git-branches-prs"
+    )
+    learning_topic = seed_topic(
+        project_client, student["id"], "numpy-arrays-operations", "Learning"
+    )
+    add_project(
+        project_client,
+        student["id"],
+        project_payload([completed_topic, learning_topic], status="Completed"),
+    )
+    counts = {
+        row["skill"]: row["count"]
+        for row in project_client.get("/api/projects/summary").json()[
+            "students_per_applied_skill"
+        ]
+    }
+    assert counts["Git collaboration"] == 1
+    assert counts["NumPy basics"] == 0
+
+
+def test_empty_project_summary(project_client: TestClient):
+    result = project_client.get("/api/projects/summary").json()
+    assert result["total_projects"] == 0
+    assert result["per_student"] == []
+    assert result["applied_skills"] == []
 
 
 def test_projects_survive_restart(tmp_path: Path):

@@ -56,6 +56,8 @@ database relationships and the full profile response formats.
 | GET    | `/api/students/{id}/projects` | List a student's projects       | 200  | Hasan      |
 | PATCH  | `/api/students/{id}/projects/{project_id}` | Update a project      | 200  | Hasan      |
 | GET    | `/api/students/{id}/profile` | Info, topics, projects, skills  | 200  | Together   |
+| GET    | `/api/skills/summary` | Matrix, counts and pandas progress   | 200  | Together   |
+| GET    | `/api/projects/summary` | pandas project counts and NumPy applied counts | 200 | Hasan |
 
 ### GET /api/students query parameters
 
@@ -134,6 +136,10 @@ from the current records on every request:
 - Completed project linked to that topic → `Applied in a project`.
 - Learning topic → no skill.
 - Several topics with the same mapped skill → one skill entry.
+
+`GET /api/skills/summary` returns the NumPy matrix and both displayed
+summaries; `GET /api/projects/summary` returns pandas project counts and
+NumPy counts of students with applied skills.
 
 ## Errors
 

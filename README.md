@@ -30,6 +30,8 @@ validates data with Pydantic and stores it in SQLite.
 - Generated skills — completed topics produce skills; a linked completed
   project upgrades the label to `Applied in a project`. Labels are
   recalculated from saved records, never stored.
+- Skill summaries — pandas summaries plus a NumPy student–skill matrix,
+  learned skills per student and students per skill, shown on the page.
 - Validation — rejects blank names/topics, unknown statuses and scores
   outside 0–100; errors are shown on the page.
 - Persistent storage — SQLite database file; data survives browser
@@ -43,9 +45,9 @@ validates data with Pydantic and stores it in SQLite.
 - Team: Academy student team
 - Maintainers:
   - Bahodirjon — adding/listing students, topic catalogue, learning
-    records, pandas topic processing
+    records, pandas topic processing, NumPy skill matrix
   - Hasan — updating students, filtering, summary, project records and
-    topic links, pandas project processing
+    topic links, pandas project summaries, NumPy applied counts
   - Together — generated skill labels, profile page, integration, tests
 - The agreed database relationships and API formats are in
   [docs/data-contract.md](docs/data-contract.md).
@@ -168,6 +170,8 @@ curl -X POST http://127.0.0.1:8000/api/students/1/projects \
   -H "Content-Type: application/json" \
   -d '{"title":"Portfolio","description":"Cohort site","contribution":"PR workflow","repository_link":"https://github.com/example/portfolio","status":"Completed","topic_ids":[1]}'
 curl http://127.0.0.1:8000/api/students/1/profile
+curl http://127.0.0.1:8000/api/skills/summary
+curl http://127.0.0.1:8000/api/projects/summary
 ```
 
 Full data format, endpoints and error responses:

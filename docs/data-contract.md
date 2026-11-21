@@ -9,8 +9,8 @@ must be reviewed by both owners before either branch is merged.
 
 | Area | Owner |
 |---|---|
-| Topic catalogue, student learning records, topic API, pandas topic processing | Bahodirjon |
-| Project records and topic links, project API, pandas project processing | Hasan |
+| Topic catalogue, student learning records, topic API, pandas topic processing, NumPy skill matrix | Bahodirjon |
+| Project records and topic links, project API, pandas project summaries, NumPy counts from the matrix | Hasan |
 | Generated skill labels, profile page, integration, cross-feature tests | Together |
 
 ## Database relationships
@@ -135,15 +135,41 @@ Rules used to calculate it from the saved records:
   "summary": { "completed_topics": 1, "completed_projects": 1, "learned_skills": 1 }
 }
 ```
+
+### Skill matrix summary
+
+```json
+{
+  "students": [{ "student_id": 1, "name": "Hasan" }],
+  "skills": ["Git collaboration", "Python basics"],
+  "matrix": [[1, 0]],
+  "learned_skills_per_student": [{ "student_id": 1, "name": "Hasan", "count": 1 }],
+  "students_per_skill": [{ "skill": "Git collaboration", "count": 1 }],
+  "progress_per_student": [
+    {
+      "student_id": 1,
+      "name": "Hasan",
+      "completed_topics": 1,
+      "completed_projects": 1,
+      "learned_skills": 1
+    }
+  ]
+}
+```
+
+`matrix[i][j]` is 1 when student `i` has at least one `Completed` topic
+mapped to skill `j`. It is built with a NumPy integer array. `skills` is
+the fixed catalogue order, so columns are stable even when counts are 0.
+
 ## Error cases agreed for tests
 
-- Empty profile: all lists empty and all counts 0.
+- Empty profile: all lists empty, all counts and matrix cells 0.
 - Duplicate topic for the same student: 409, no second row.
 - Unknown student, topic or project ID: 404.
 - Unknown `topic_key`: 422.
 - Project topic from another student: 422, no project saved.
 - Several topics mapping to one skill: one skill with several `topics`.
-- Status changes: generated skills recalculate from current records.
+- Status changes: profile and matrix recalculate from current records.
 - Restart: records and calculated views come back from SQLite.
 
 ## Review checklist for both owners

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from backend.database import Database
 from backend.models import (
     ProjectCreate,
+    ProjectSummary,
     ProjectUpdate,
     StudentProject,
 )
@@ -14,6 +15,7 @@ from backend.project_repository import (
     InvalidTopicLinksError,
     ProjectNotFoundError,
 )
+from backend.project_service import build_project_summary
 from backend.project_service import add_project as service_add_project
 from backend.project_service import list_projects, update_project
 from backend.repository import StudentNotFoundError
@@ -80,3 +82,9 @@ def patch_project(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)
         ) from error
+
+
+@router.get("/projects/summary", response_model=ProjectSummary)
+def get_project_summary(database: DatabaseDep) -> ProjectSummary:
+    """Return pandas project counts and NumPy applied-skill counts."""
+    return build_project_summary(database)

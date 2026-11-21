@@ -64,6 +64,12 @@ def profile(client: TestClient, student_id: int) -> dict:
     return response.json()
 
 
+def summary(client: TestClient) -> dict:
+    response = client.get("/api/skills/summary")
+    assert response.status_code == 200
+    return response.json()
+
+
 def test_empty_profile_has_no_records_or_skills(profile_client: TestClient):
     student = add_student(profile_client)
     result = profile(profile_client, student["id"])
@@ -116,6 +122,8 @@ def test_completed_linked_project_gives_applied_label(
             "repository_link": "https://github.com/example/portfolio",
         }
     ]
+    result = summary(profile_client)
+    assert result["progress_per_student"][0]["completed_projects"] == 1
 
 
 def test_learning_topic_never_generates_a_skill(profile_client: TestClient):
@@ -127,6 +135,7 @@ def test_learning_topic_never_generates_a_skill(profile_client: TestClient):
     result = profile(profile_client, student["id"])
     assert result["skills"] == []
     assert result["summary"]["learned_skills"] == 0
+    assert summary(profile_client)["matrix"] == [[0, 0, 0, 0, 0]]
 
 
 def test_project_linked_to_learning_topic_does_not_upgrade_other_skill(
@@ -174,9 +183,10 @@ def test_several_topics_for_one_skill_are_merged(profile_client: TestClient):
         second["id"],
     ]
     assert len(skills[0]["projects"]) == 2
+    assert summary(profile_client)["students_per_skill"][0]["count"] == 1
 
 
-def test_hasans_review_topic_status_changes_update_profile(
+def test_hasans_review_topic_status_changes_update_matrix_and_profile(
     profile_client: TestClient,
 ):
     """Hasan runs Bahodirjon's topic feature and tests its recalculation."""
@@ -187,22 +197,16 @@ def test_hasans_review_topic_status_changes_update_profile(
         "fastapi-endpoints-validation",
         status="Learning",
     )
-    assert profile(profile_client, student["id"])["skills"] == []
-
-    response = profile_client.patch(
-        f"/api/students/{student['id']}/topics/{topic['id']}",
-        json={"status": "Completed"},
-    )
-    assert response.status_code == 200
-    assert profile(profile_client, student["id"])["skills"][0]["label"] == (
-        "Learned"
-    )
+    assert summary(profile_client)["matrix"] == [[0, 0, 0, 0, 0]]
 
     profile_client.patch(
         f"/api/students/{student['id']}/topics/{topic['id']}",
-        json={"status": "Learning"},
+        json={"status": "Completed"},
     )
-    assert profile(profile_client, student["id"])["skills"] == []
+    assert summary(profile_client)["matrix"] == [[0, 0, 0, 0, 1]]
+    assert profile(profile_client, student["id"])["skills"][0]["label"] == (
+        "Learned"
+    )
 
 
 def test_bahodirjons_review_project_status_changes_update_skill_label(
@@ -256,7 +260,7 @@ def test_unknown_profile_and_foreign_topic_link(profile_client: TestClient):
     assert profile(profile_client, hasan["id"])["projects"] == []
 
 
-def test_profile_survives_restart(tmp_path: Path):
+def test_profile_and_summaries_survive_restart(tmp_path: Path):
     settings = Settings(database_path=tmp_path / "profile-persist.db")
     with TestClient(create_app(settings)) as first:
         student = add_student(first)
@@ -266,3 +270,4 @@ def test_profile_survives_restart(tmp_path: Path):
 
     with TestClient(create_app(settings)) as second:
         assert profile(second, student["id"]) == expected
+        assert summary(second)["matrix"][0][1] == 1

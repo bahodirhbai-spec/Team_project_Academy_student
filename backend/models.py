@@ -316,3 +316,77 @@ class StudentProfile(BaseModel):
     projects: list[StudentProject]
     skills: list[GeneratedSkill]
     summary: ProfileSummary
+
+
+class SkillStudent(BaseModel):
+    """One row label of the NumPy student–skill matrix."""
+
+    student_id: int
+    name: str
+
+
+class LearnedSkillsCount(BaseModel):
+    """Number of 1s in one matrix row."""
+
+    student_id: int
+    name: str
+    count: int
+
+
+class StudentsPerSkill(BaseModel):
+    """Number of 1s in one matrix column."""
+
+    skill: str
+    count: int
+
+
+# ----- Project summaries (Hasan) -----
+
+
+class StudentProjectCount(BaseModel):
+    """pandas project summary for one student."""
+
+    student_id: int
+    name: str
+    total_projects: int
+    completed_projects: int
+
+
+class AppliedSkillEvidence(BaseModel):
+    """Completed projects that prove a student applied one skill."""
+
+    skill: str
+    student_id: int
+    projects: list[SupportingProject]
+
+
+class ProjectSummary(BaseModel):
+    """Global project counts and skill evidence."""
+
+    total_projects: int
+    completed_projects: int
+    in_progress_projects: int
+    per_student: list[StudentProjectCount]
+    applied_skills: list[AppliedSkillEvidence]
+    students_per_applied_skill: list[StudentsPerSkill]
+
+
+class StudentProgress(BaseModel):
+    """pandas summary of completed topics and projects per student."""
+
+    student_id: int
+    name: str
+    completed_topics: int
+    completed_projects: int
+    learned_skills: int
+
+
+class SkillSummary(BaseModel):
+    """The two summaries displayed on the website."""
+
+    students: list[SkillStudent]
+    skills: list[str]
+    matrix: list[list[int]]
+    learned_skills_per_student: list[LearnedSkillsCount]
+    students_per_skill: list[StudentsPerSkill]
+    progress_per_student: list[StudentProgress]

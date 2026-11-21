@@ -2,17 +2,22 @@
 
 import sqlite3
 
-from backend.config.business_rules import ProjectStatus
+from backend.config.business_rules import TOPIC_BY_KEY, ProjectStatus
 from backend.database import Database
 from backend.models import (
     ProjectCreate,
     ProjectUpdate,
     StudentProject,
+    StudentTopic,
+    TopicStatus,
 )
 
 SELECT_PROJECTS_SQL = (
     "SELECT id, student_id, title, description, contribution, "
     "repository_link, status FROM projects"
+)
+SELECT_TOPICS_SQL = (
+    "SELECT id, student_id, topic_key, status FROM student_topics"
 )
 
 
@@ -81,6 +86,27 @@ class ProjectRepository:
                 )
                 for row in rows
             ]
+
+    def list_all(self) -> list[StudentProject]:
+        """Return every project for the global pandas summary."""
+        with self._database.connect() as connection:
+            rows = connection.execute(
+                f"{SELECT_PROJECTS_SQL} ORDER BY student_id, id"
+            ).fetchall()
+            return [
+                _row_to_project(
+                    row, _linked_topic_ids(connection, row["id"])
+                )
+                for row in rows
+            ]
+
+    def list_topic_records(self) -> list[StudentTopic]:
+        """Read learning records to match completed projects to skills."""
+        with self._database.connect() as connection:
+            rows = connection.execute(
+                f"{SELECT_TOPICS_SQL} ORDER BY id"
+            ).fetchall()
+        return [_row_to_topic(row) for row in rows]
 
     def get(self, student_id: int, project_id: int) -> StudentProject | None:
         """Return a project only when it belongs to this student."""
@@ -200,4 +226,17 @@ def _row_to_project(
         repository_link=row["repository_link"],
         status=ProjectStatus(row["status"]),
         topic_ids=topic_ids,
+    )
+
+
+def _row_to_topic(row: sqlite3.Row) -> StudentTopic:
+    """Attach catalogue name and skill to a stored learning record."""
+    definition = TOPIC_BY_KEY[row["topic_key"]]
+    return StudentTopic(
+        id=row["id"],
+        student_id=row["student_id"],
+        topic_key=definition.key,
+        topic_name=definition.name,
+        skill=definition.skill,
+        status=TopicStatus(row["status"]),
     )

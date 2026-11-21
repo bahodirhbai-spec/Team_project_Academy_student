@@ -32,6 +32,9 @@ def test_profile_controls_are_present_and_wired():
         "profile-section",
         "profile-back",
         "profile-content",
+        "learned-skills-body",
+        "students-per-skill-body",
+        "applied-skills-body",
     ):
         assert f'id="{element_id}"' in html
         assert element_id in script
@@ -47,4 +50,4 @@ def test_index_page_serves_profile_section(tmp_path):
         response = client.get("/")
     assert response.status_code == 200
     assert 'id="profile-section"' in response.text
-    assert "app.js?v=6" in response.text
+    assert "app.js?v=5" in response.text

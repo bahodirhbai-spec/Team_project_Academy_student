@@ -76,6 +76,14 @@ class TopicRepository:
             ).fetchall()
         return [_row_to_topic(row) for row in rows]
 
+    def list_all(self) -> list[StudentTopic]:
+        """Return every learning record, needed by the global skill matrix."""
+        with self._database.connect() as connection:
+            rows = connection.execute(
+                f"{SELECT_TOPICS_SQL} ORDER BY student_id, id"
+            ).fetchall()
+        return [_row_to_topic(row) for row in rows]
+
     def get_many(self, topic_ids: list[int]) -> list[StudentTopic]:
         """Load several records for project-link validation."""
         if not topic_ids:

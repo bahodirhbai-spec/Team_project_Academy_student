@@ -99,3 +99,8 @@ TOPIC_CATALOGUE: tuple[TopicDefinition, ...] = (
 TOPIC_BY_KEY: dict[str, TopicDefinition] = {
     topic.key: topic for topic in TOPIC_CATALOGUE
 }
+
+# Fixed catalogue order keeps the NumPy matrix columns stable.
+ALL_SKILLS: tuple[str, ...] = tuple(
+    dict.fromkeys(topic.skill for topic in TOPIC_CATALOGUE)
+)

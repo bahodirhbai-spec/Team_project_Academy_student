@@ -1,4 +1,4 @@
-"""HTTP endpoints for topics (Bahodirjon)."""
+"""HTTP endpoints for topics and the skill matrix (Bahodirjon)."""
 
 from typing import Annotated
 
@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from backend.database import Database
 from backend.models import (
+    SkillSummary,
     StudentTopic,
     TopicCatalogueItem,
     TopicCreate,
     TopicStatusUpdate,
 )
+from backend.profile_service import build_combined_skill_summary
 from backend.repository import StudentNotFoundError
 from backend.topic_repository import DuplicateTopicError, TopicNotFoundError
 from backend.topic_service import UnknownTopicKeyError
@@ -79,3 +81,9 @@ def patch_topic_status(
         return service_update_status(database, student_id, topic_id, changes)
     except (StudentNotFoundError, TopicNotFoundError) as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+
+
+@router.get("/skills/summary", response_model=SkillSummary)
+def get_skill_summary(database: DatabaseDep) -> SkillSummary:
+    """Return the NumPy matrix, its counts and the pandas progress summary."""
+    return build_combined_skill_summary(database)
