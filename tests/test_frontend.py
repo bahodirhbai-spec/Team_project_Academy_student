@@ -47,4 +47,4 @@ def test_index_page_serves_profile_section(tmp_path):
         response = client.get("/")
     assert response.status_code == 200
     assert 'id="profile-section"' in response.text
-    assert "app.js?v=5" in response.text
+    assert "app.js?v=6" in response.text
