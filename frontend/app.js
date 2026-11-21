@@ -7,7 +7,9 @@ const STUDENT_STATUSES = ["Active", "Paused", "Completed"];
 const NO_SCORES_TEXT = "No scores yet.";
 const NO_STUDENTS_TEXT = "Hozircha o'quvchilar yo'q";
 const NO_MATCH_TEXT = "Qidiruvga mos o'quvchi topilmadi";
-const TABLE_COLUMN_COUNT = 6;
+const TABLE_COLUMN_COUNT = 7;
+const NO_SKILLS_TEXT = "Hali hech kimda ko'nikma yo'q";
+const PERCENT = 100;
 
 const elements = {
     form: document.getElementById("student-form"),
@@ -20,6 +22,10 @@ const elements = {
     totalCount: document.getElementById("total-count"),
     activeCount: document.getElementById("active-count"),
     averageScore: document.getElementById("average-score"),
+    overviewError: document.getElementById("overview-error"),
+    progressBody: document.getElementById("progress-body"),
+    skillChart: document.getElementById("skill-chart"),
+    skillMatrix: document.getElementById("skill-matrix"),
 };
 
 // Search is sent to the API, so the table and /docs use the same rules.
@@ -75,6 +81,7 @@ const api = {
             body: JSON.stringify(changes),
         }),
     getSummary: () => requestJson("/summary"),
+    getSkillOverview: () => requestJson("/skills/overview"),
 };
 
 
@@ -119,6 +126,14 @@ function createButton(label, className, onClick) {
     button.textContent = label;
     button.addEventListener("click", onClick);
     return button;
+}
+
+function createProfileLink(studentId) {
+    const link = document.createElement("a");
+    link.href = `profile.html?id=${studentId}`;
+    link.className = "button-small button-link";
+    link.textContent = "Profil";
+    return link;
 }
 
 function createStatusSelect(selectedStatus) {
@@ -166,6 +181,7 @@ function createStudentRow(student) {
         createCell(createStatusBadge(student.status)),
         createCell(formatScore(student.score)),
         createCell(editButton),
+        createCell(createProfileLink(student.id)),
     );
     return row;
 }
@@ -207,6 +223,7 @@ function createEditRow(student) {
         createCell(statusSelect),
         createCell(scoreInput),
         createCell(actions),
+        createCell(""),
     );
     return row;
 }
@@ -216,6 +233,96 @@ function renderSummary(summary) {
     elements.activeCount.textContent = summary.active_students;
     elements.averageScore.textContent =
         summary.average_score === null ? NO_SCORES_TEXT : summary.average_score;
+}
+
+
+// ===== Rendering the skills overview =====
+
+function renderOverview(overview) {
+    renderProgressTable(overview.students);
+    renderSkillChart(overview.skill_counts, overview.students.length);
+    renderSkillMatrix(overview);
+}
+
+function renderProgressTable(students) {
+    elements.progressBody.replaceChildren();
+    for (const student of students) {
+        const row = document.createElement("tr");
+        row.append(
+            createCell(student.name),
+            createCell(String(student.completed_topics)),
+            createCell(String(student.completed_projects)),
+            createCell(String(student.skill_count)),
+        );
+        elements.progressBody.append(row);
+    }
+}
+
+// One bar per skill; its length is the share of all students.
+function renderSkillChart(skillCounts, studentCount) {
+    elements.skillChart.replaceChildren();
+    if (skillCounts.length === 0) {
+        elements.skillChart.textContent = NO_SKILLS_TEXT;
+        return;
+    }
+    for (const { skill, student_count: count } of skillCounts) {
+        elements.skillChart.append(
+            createBarRow(skill, count, (count / studentCount) * PERCENT)
+        );
+    }
+}
+
+function createBarRow(label, value, percent) {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+
+    const name = document.createElement("span");
+    name.className = "bar-label";
+    name.textContent = label;
+
+    const track = document.createElement("div");
+    track.className = "bar-track";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.width = `${percent}%`;
+    track.append(bar);
+
+    const number = document.createElement("span");
+    number.className = "bar-value";
+    number.textContent = String(value);
+
+    row.append(name, track, number);
+    return row;
+}
+
+// Header row = skill names; then one row per student with 1 or 0.
+function renderSkillMatrix({ skills, students, matrix }) {
+    if (skills.length === 0) {
+        elements.skillMatrix.replaceChildren();  // the chart says why
+        return;
+    }
+    const header = document.createElement("tr");
+    header.append(document.createElement("th"));
+    for (const skill of skills) {
+        const cell = document.createElement("th");
+        cell.textContent = skill;
+        header.append(cell);
+    }
+    const head = document.createElement("thead");
+    head.append(header);
+
+    const body = document.createElement("tbody");
+    students.forEach((student, rowIndex) => {
+        const row = document.createElement("tr");
+        row.append(createCell(student.name));
+        for (const value of matrix[rowIndex]) {
+            const cell = createCell(String(value));
+            cell.className = value ? "has-skill" : "no-skill";
+            row.append(cell);
+        }
+        body.append(row);
+    });
+    elements.skillMatrix.replaceChildren(head, body);
 }
 
 
@@ -256,8 +363,17 @@ async function loadSummary() {
     }
 }
 
+async function loadOverview() {
+    try {
+        renderOverview(await api.getSkillOverview());
+        showMessage(elements.overviewError, "");
+    } catch (error) {
+        showMessage(elements.overviewError, error.message);
+    }
+}
+
 async function refreshPage() {
-    await Promise.all([loadStudents(), loadSummary()]);
+    await Promise.all([loadStudents(), loadSummary(), loadOverview()]);
 }
 
 

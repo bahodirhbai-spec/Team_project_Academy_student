@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>O'quvchi profili</title>
+    <link rel="stylesheet" href="index.css?v=6">
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand">
+                <span class="logo">A</span>
+                <h1>Akademiya <span>o'quvchilari</span></h1>
+            </div>
+            <p class="tagline">O'quvchi profili</p>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <a class="back-link" href="index.html">&larr; Ro'yxatga qaytish</a>
+
+        <!-- ===== BIRGA: o'quvchi ma'lumoti ===== -->
+        <section id="student-card">
+            <h2 id="student-name">Yuklanmoqda...</h2>
+            <p id="student-meta" class="muted"></p>
+            <p id="profile-error" class="error"></p>
+        </section>
+
+        <!-- ===== BIRGA: ko'nikmalar (har so'rovda qayta hisoblanadi) ===== -->
+        <section id="skills-section">
+            <h2>Ko'nikmalar</h2>
+            <div id="skill-list" class="skill-list"></div>
+        </section>
+
+        <!-- ===== BAHODIRJON: mavzular ===== -->
+        <section id="topics-section">
+            <h2>Mavzular</h2>
+            <form id="topic-form" class="inline-form">
+                <select id="topic-select" name="topic_id" aria-label="Mavzu"></select>
+                <button type="submit">Mavzu qo'shish</button>
+            </form>
+            <p id="topic-error" class="error"></p>
+            <div class="table-wrap">
+                <table class="plain-table">
+                    <thead>
+                        <tr><th>Mavzu</th><th>Ko'nikma</th><th>Holat</th><th>Amal</th></tr>
+                    </thead>
+                    <tbody id="topic-list"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== HASAN: loyihalar ===== -->
+        <section id="projects-section">
+            <h2>Loyihalar</h2>
+            <form id="project-form" class="project-form">
+                <div class="field">
+                    <label for="project-name">Loyiha nomi</label>
+                    <input id="project-name" name="name" type="text" required>
+                </div>
+                <div class="field">
+                    <label for="project-link">Havola (ixtiyoriy)</label>
+                    <input id="project-link" name="link" type="text" placeholder="https://github.com/...">
+                </div>
+                <div class="field field-wide">
+                    <label for="project-contribution">O'z hissam</label>
+                    <textarea id="project-contribution" name="contribution" rows="2" required></textarea>
+                </div>
+                <div class="field">
+                    <label for="project-status">Holat</label>
+                    <select id="project-status" name="status">
+                        <option value="In progress">In progress</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <div class="field field-wide">
+                    <span class="label">Qaysi mavzular ishlatildi</span>
+                    <div id="project-form-topics"></div>
+                </div>
+                <div class="field-wide">
+                    <button type="submit">Loyiha qo'shish</button>
+                </div>
+            </form>
+            <p id="project-error" class="error"></p>
+            <div id="project-list" class="project-list"></div>
+        </section>
+
+    </main>
+
+    <script type="module" src="profile.js?v=6"></script>
+</body>
+</html>

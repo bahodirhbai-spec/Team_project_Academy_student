@@ -7,6 +7,7 @@ directly. If we ever change databases, only this file changes.
 import sqlite3
 
 from backend.database import Database
+from backend.errors import NotFoundError
 from backend.models import (
     Student,
     StudentCreate,
@@ -33,7 +34,7 @@ ORDER_BY_SQL = {
 SEARCH_SQL = "instr(py_lower(name), :search) > 0"
 
 
-class StudentNotFoundError(Exception):
+class StudentNotFoundError(NotFoundError):
     """Raised when no student has the requested ID."""
 
     def __init__(self, student_id: int) -> None:
@@ -105,3 +106,18 @@ class StudentRepository:
 def _row_to_student(row: sqlite3.Row) -> Student:
     """Convert one database row into a Student model."""
     return Student.model_validate(dict(row))
+
+
+def ensure_student_exists(
+    connection: sqlite3.Connection, student_id: int
+) -> None:
+    """Raise StudentNotFoundError (404) if the student is missing.
+
+    Used by the topic and project repositories inside their own
+    connection, so the check and the change are one transaction.
+    """
+    row = connection.execute(
+        "SELECT 1 FROM students WHERE id = ?", (student_id,)
+    ).fetchone()
+    if row is None:
+        raise StudentNotFoundError(student_id)
