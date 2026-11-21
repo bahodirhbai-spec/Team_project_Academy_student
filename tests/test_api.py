@@ -164,6 +164,25 @@ def test_partial_and_case_insensitive_search(client):
     ]
 
 
+def test_cyrillic_search_is_case_insensitive(client):
+    add_students_named(client, "Алишер", "Bob")
+    assert names(client.get("/api/students", params={"search": "али"})) == [
+        "Алишер"
+    ]
+    assert names(client.get("/api/students", params={"search": "АЛИ"})) == [
+        "Алишер"
+    ]
+
+
+def test_cyrillic_sort_uses_unicode_lower(client):
+    add_students_named(client, "Бахтиёр", "Алишер")
+    assert names(client.get("/api/students", params={"sort": "name_asc"})) == [
+        "Алишер", "Бахтиёр"
+    ]
+    result = client.get("/api/students", params={"sort": "name_desc"})
+    assert names(result) == ["Бахтиёр", "Алишер"]
+
+
 def test_search_ignores_surrounding_spaces(client):
     add_students_named(client, "Ali", "Bob")
     assert names(client.get("/api/students?search=%20%20ali%20")) == ["Ali"]
@@ -214,6 +233,12 @@ def test_no_matching_students_returns_empty_list(client):
 def test_invalid_sort_is_rejected(client):
     response = client.get("/api/students?sort=score_asc")
     assert response.status_code == 422
+
+
+def test_unknown_query_parameter_is_rejected(client):
+    response = client.get("/api/students", params={"serch": "ali"})
+    assert response.status_code == 422
+    assert "serch" in str(response.json())
 
 
 def test_percent_sign_is_not_a_wildcard(client):

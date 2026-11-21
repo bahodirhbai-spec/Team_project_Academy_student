@@ -34,6 +34,12 @@ class Database:
         """Open a connection, commit on success, and always close it."""
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row  # rows act like dicts
+        # SQLite's lower()/NOCASE only fold ASCII letters. Python's str.lower()
+        # also handles Cyrillic and other Unicode text, so searching and
+        # sorting work for every student name.
+        connection.create_function(
+            "py_lower", 1, str.lower, deterministic=True
+        )
         try:
             with connection:  # commits, or rolls back on an error
                 yield connection

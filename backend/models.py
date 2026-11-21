@@ -35,7 +35,11 @@ class StudentSort(str, Enum):
 class StudentQuery(BaseModel):
     """Optional filters for GET /api/students."""
 
-    model_config = ConfigDict(str_strip_whitespace=True, frozen=True)
+    # forbid: a typo like ?serch=ali must fail loudly instead of silently
+    # returning every student.
+    model_config = ConfigDict(
+        str_strip_whitespace=True, frozen=True, extra="forbid"
+    )
 
     status: StudentStatus | None = None
     search: str | None = Field(default=None, max_length=MAX_TEXT_LENGTH)
