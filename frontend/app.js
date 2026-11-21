@@ -22,8 +22,10 @@ const elements = {
     averageScore: document.getElementById("average-score"),
 };
 
-// Students returned by the last API call; searching filters this in the browser.
-let studentsCache = [];
+// Search is sent to the API, so the table and /docs use the same rules.
+// Only the newest request is allowed to update the table.
+let loadStudentsRequest = 0;
+let searchDebounce = null;
 
 
 // ===== API: the only code that calls fetch() =====
@@ -51,9 +53,16 @@ function formatErrorDetail(detail) {
 }
 
 const api = {
-    listStudents: (status) => {
-        const query = status ? `?status=${encodeURIComponent(status)}` : "";
-        return requestJson(`/students${query}`);
+    listStudents: (status, search) => {
+        const params = new URLSearchParams();
+        if (status) {
+            params.set("status", status);
+        }
+        if (search) {
+            params.set("search", search);
+        }
+        const query = params.toString();
+        return requestJson(`/students${query ? `?${query}` : ""}`);
     },
     addStudent: (student) =>
         requestJson("/students", {
@@ -212,31 +221,31 @@ function renderSummary(summary) {
 
 // ===== Loading data from the API =====
 
-// Case-insensitive search in the name column.
-function matchesSearch(student, query) {
-    if (!query) {
-        return true;
-    }
-    const needle = query.toLocaleLowerCase();
-    return student.name.toLocaleLowerCase().includes(needle);
-}
-
-function renderFilteredStudents() {
-    const query = elements.searchInput.value.trim();
-    const filtered = studentsCache.filter((student) =>
-        matchesSearch(student, query)
-    );
-    renderStudents(filtered, query ? NO_MATCH_TEXT : NO_STUDENTS_TEXT);
-}
-
 async function loadStudents() {
+    const requestId = ++loadStudentsRequest;
+    const search = elements.searchInput.value.trim();
     try {
-        studentsCache = await api.listStudents(elements.statusFilter.value);
-        renderFilteredStudents();
+        const students = await api.listStudents(
+            elements.statusFilter.value,
+            search
+        );
+        // A slower earlier request must not overwrite a newer result.
+        if (requestId !== loadStudentsRequest) {
+            return;
+        }
+        renderStudents(students, search ? NO_MATCH_TEXT : NO_STUDENTS_TEXT);
         showMessage(elements.tableError, "");
     } catch (error) {
-        showMessage(elements.tableError, error.message);
+        if (requestId === loadStudentsRequest) {
+            showMessage(elements.tableError, error.message);
+        }
     }
+}
+
+// Wait for a short pause in typing before calling the API.
+function scheduleStudentsReload() {
+    window.clearTimeout(searchDebounce);
+    searchDebounce = window.setTimeout(loadStudents, 200);
 }
 
 async function loadSummary() {
@@ -295,5 +304,5 @@ async function handleUpdateStudent(studentId, changes) {
 
 elements.form.addEventListener("submit", handleFormSubmit);
 elements.statusFilter.addEventListener("change", loadStudents);
-elements.searchInput.addEventListener("input", renderFilteredStudents);
+elements.searchInput.addEventListener("input", scheduleStudentsReload);
 refreshPage();  // on every page load, ask the API for saved students
