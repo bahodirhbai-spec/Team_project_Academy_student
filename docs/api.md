@@ -67,7 +67,13 @@ GET /api/students?search=ali&status=Active&sort=name_asc
 - Surrounding spaces are stripped, so `search=%20ali%20` finds `Ali`.
 - Search matches plain text: `%` and `_` are ordinary characters, not
   SQL wildcards.
+- Search and sorting are Unicode-aware: `py_lower` (Python's `str.lower()`,
+  registered on every SQLite connection) is used instead of SQLite's
+  ASCII-only `lower()`/`NOCASE`, so `?search=али` finds `Алишер` and
+  `sort=name_asc` orders Cyrillic names correctly.
 - Any other `sort` value (for example `score_asc`) is rejected with 422.
+- Unknown query parameters (for example `?serch=ali`) are rejected with 422
+  so typos cannot silently return all students.
 
 ### PATCH rules
 
@@ -82,6 +88,7 @@ GET /api/students?search=ali&status=Active&sort=name_asc
 |--------|---------------------------------------------------|------------------------------------|
 | 422    | Invalid data (blank name, bad status, score > 100) | List of `{loc, msg, ...}` objects |
 | 422    | Unknown `sort` value (for example `score_asc`)     | List of `{loc, msg, ...}` objects |
+| 422    | Unknown query parameter (for example `serch`)      | List of `{loc, msg, ...}` objects |
 | 404    | `GET` or `PATCH` on an `id` that does not exist    | Text: `"Student 7 not found"`      |
 
 Example 422 response:
