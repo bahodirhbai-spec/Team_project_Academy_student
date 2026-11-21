@@ -209,6 +209,16 @@ then `pip install -r requirements.txt`.
 The command was run from another folder. `cd` into the project root
 (the folder that contains `backend/`) and run it again.
 
+### Editor reports import errors for `fastapi` or `numpy`
+
+The editor is using a different Python (for example the system Python or
+a bare pyenv interpreter) instead of the project environment. In VS Code,
+press `Ctrl+Shift+P`, run **Python: Select Interpreter** and choose
+`./venv/bin/python` (Python 3.11.8). The workspace settings in
+`.vscode/settings.json` already point to it; reload the window if the
+errors remain. In any other editor, configure the interpreter path to
+`<project root>/venv/bin/python`.
+
 ### `address already in use` on port 8000
 
 Another program is using the port. Start on a different port instead of
