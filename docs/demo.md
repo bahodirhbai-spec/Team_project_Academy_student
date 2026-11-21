@@ -53,8 +53,8 @@ Choose `Active` in the filter: only Hasan and Bahodirjon are shown.
    **Learned**. Change the topic to `Learning`: the skill disappears.
 5. Add both Python topics from the catalogue. They merge into one
    **Python basics** skill with two supporting topics.
-6. Click **Orqaga**. The dashboard shows the pandas progress table and
-   the NumPy learned-skills and students-per-skill tables.
+6. Click **Orqaga**. The page returns to the student table and the simple
+   count/average summary.
 
 ## 8. Network tab: one request from page to database
 

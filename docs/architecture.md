@@ -25,13 +25,13 @@ backend/
   repository.py       All SQL queries for students
   topic_repository.py All SQL for learning records (Bahodirjon)
   project_repository.py All SQL for projects and links (Hasan)
-  topic_analytics.py  pandas topic frames + NumPy skill matrix
-  project_analytics.py pandas project frames + NumPy applied counts
+  topic_analytics.py  pandas topic frames for completed records
+  project_analytics.py pandas project frames and skill evidence
   skill_analytics.py  pandas join producing generated skills
   services.py         Business logic: summary, NumPy average
-  topic_service.py    Catalogue, learning records, matrix summary
-  project_service.py  Projects, links, project summary
-  profile_service.py  Integration: profile + combined summary
+  topic_service.py    Catalogue and learning records
+  project_service.py  Projects and topic links
+  profile_service.py  Integration: profile and generated skills
   routes.py           Existing student endpoints
   topic_routes.py     Topic and catalogue endpoints
   project_routes.py   Project endpoints
@@ -44,7 +44,7 @@ frontend/
   app.js              Calls the API and updates the page
 tests/
   test_api.py         Existing student endpoint tests
-  test_topics.py      Topic and matrix tests (Bahodirjon)
+  test_topics.py      Topic catalogue and record tests (Bahodirjon)
   test_projects.py    Project and link tests (Hasan)
   test_profile.py     Cross-feature profile and review tests
   test_frontend.py    Static asset wiring checks
@@ -106,9 +106,7 @@ Consequences:
 4. `skill_analytics.py` merges completed topics with completed project
    evidence in pandas and calculates each skill label. Nothing about the
    label is written to SQLite.
-5. `topic_analytics.py` builds the NumPy matrix for the global summary;
-   `project_analytics.py` combines project rows with it for the counts.
-6. The page renders cards with text nodes and validated links, so a
+5. The page renders cards with text nodes and validated links, so a
    student-entered repository URL cannot inject HTML.
 
 ## Configuration vs business rules

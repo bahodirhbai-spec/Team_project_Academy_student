@@ -11,6 +11,12 @@ branches were built from it.
 | `feature/hasan-projects` | projects, topic links, pandas project summaries, NumPy applied counts | `Merge PR: Hasan ...` |
 | `feature/profile-integration` | generated labels, profile page, cross-review tests, docs | kept intact on the final feature branch |
 | `feature/student-profile-dashboard` | all of the above plus the no-direct-push rule | pushed for review; **do not push to `dev` or `main`** |
+| `feature/remove-skill-summary-section` | removes the global skill/project summaries, their API endpoints and the NumPy matrix | pushed for review |
+
+The global summary endpoints and the NumPy matrix were removed later: the
+page no longer displays them, and the profile feature does not depend on
+them. Historical rows above describe what each feature branch originally
+contained.
 
 The profile work was accidentally pushed to `dev` once. It was moved to
 `feature/student-profile-dashboard` and `dev` was restored to its previous
@@ -37,9 +43,9 @@ Each local merge was tested before it was made:
 
 Cross-review tests in `tests/test_profile.py`:
 
-- `test_hasans_review_topic_status_changes_update_matrix_and_profile` —
+- `test_hasans_review_topic_status_changes_update_profile` —
   Hasan's review of Bahodirjon's topic feature: changing a learning
-  record must update both the matrix and the generated skill.
+  record must update the generated skill in both directions.
 - `test_bahodirjons_review_project_status_changes_update_skill_label` —
   Bahodirjon's review of Hasan's project feature: changing a project
   status must switch the label between `Learned` and
