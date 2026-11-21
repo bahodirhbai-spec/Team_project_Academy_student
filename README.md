@@ -30,8 +30,9 @@ validates data with Pydantic and stores it in SQLite.
 - Generated skills — completed topics produce skills; a linked completed
   project upgrades the label to `Applied in a project`. Labels are
   recalculated from saved records, never stored.
-- Skill summaries — pandas summaries plus a NumPy student–skill matrix,
-  learned skills per student and students per skill, shown on the page.
+- Skill summaries — pandas summaries plus a NumPy student–skill matrix and
+  learned skills per student are available through the API and on each
+  student's profile page.
 - Validation — rejects blank names/topics, unknown statuses and scores
   outside 0–100; errors are shown on the page.
 - Persistent storage — SQLite database file; data survives browser

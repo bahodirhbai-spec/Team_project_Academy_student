@@ -32,9 +32,6 @@ def test_profile_controls_are_present_and_wired():
         "profile-section",
         "profile-back",
         "profile-content",
-        "learned-skills-body",
-        "students-per-skill-body",
-        "applied-skills-body",
     ):
         assert f'id="{element_id}"' in html
         assert element_id in script
