@@ -58,8 +58,8 @@ Active development — academy training project, not used in production.
 
 ## Prerequisites
 
-- [Python](https://www.python.org/downloads/) 3.12+ — application
-  runtime (tested with 3.12.3). Includes SQLite through the built-in
+- [Python](https://www.python.org/downloads/) 3.11+ — application
+  runtime (tested with 3.11.8). Includes SQLite through the built-in
   `sqlite3` module, so no separate database server is needed.
 - [Git](https://git-scm.com/downloads) 2.0+ — to clone the repository.
 - A modern web browser (Chrome, Firefox, Edge) — to use the page and its
