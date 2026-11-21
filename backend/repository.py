@@ -20,15 +20,17 @@ SELECT_STUDENTS_SQL = "SELECT id, name, topic, status, score FROM students"
 ALL_STUDENTS = StudentQuery()
 
 # Fixed SQL pieces picked by the enum value, never built from user text.
+# py_lower is Python's str.lower() registered on every connection: unlike
+# SQLite's NOCASE, it folds Cyrillic and other Unicode names correctly.
 ORDER_BY_SQL = {
     None: "id",
-    StudentSort.NAME_ASC: "name COLLATE NOCASE ASC, id",
-    StudentSort.NAME_DESC: "name COLLATE NOCASE DESC, id",
+    StudentSort.NAME_ASC: "py_lower(name) ASC, id",
+    StudentSort.NAME_DESC: "py_lower(name) DESC, id",
 }
 
 # instr() looks for plain text in the name, so "%" and "_" are not wildcards
 # (with LIKE they would mean "any characters").
-SEARCH_SQL = "instr(lower(name), :search) > 0"
+SEARCH_SQL = "instr(py_lower(name), :search) > 0"
 
 
 class StudentNotFoundError(Exception):
