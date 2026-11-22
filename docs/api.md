@@ -36,9 +36,6 @@ Leading and trailing spaces are removed, so `"   "` counts as blank.
 `ACADEMY_AVERAGE_DECIMALS` decimals. It is `null` when no student has a
 score; the page then shows "No scores yet."
 
-See [data-contract.md](data-contract.md) for the shared catalogue,
-database relationships and the full profile response formats.
-
 ## Endpoints
 
 | Method | Path                 | Purpose                                 | Success | Owner      |
@@ -48,16 +45,6 @@ database relationships and the full profile response formats.
 | GET    | `/api/students/{id}` | Get one student by `id`                 | 200     | Bahodirjon |
 | PATCH  | `/api/students/{id}` | Update `topic`, `status` and/or `score` | 200     | Hasan      |
 | GET    | `/api/summary`       | Counts and average score                | 200     | Hasan      |
-| GET    | `/api/topics/catalogue` | Predefined topics and skill mappings | 200  | Bahodirjon |
-| POST   | `/api/students/{id}/topics` | Add a learning record             | 201  | Bahodirjon |
-| GET    | `/api/students/{id}/topics` | List learning records             | 200  | Bahodirjon |
-| PATCH  | `/api/students/{id}/topics/{topic_id}` | Change `Learning`/`Completed` | 200 | Bahodirjon |
-| POST   | `/api/students/{id}/projects` | Add a project with topic links  | 201  | Hasan      |
-| GET    | `/api/students/{id}/projects` | List a student's projects       | 200  | Hasan      |
-| PATCH  | `/api/students/{id}/projects/{project_id}` | Update a project      | 200  | Hasan      |
-| GET    | `/api/students/{id}/profile` | Info, topics, projects, skills  | 200  | Together   |
-| GET    | `/api/skills/summary` | Matrix, counts and pandas progress   | 200  | Together   |
-| GET    | `/api/projects/summary` | pandas project counts and NumPy applied counts | 200 | Hasan |
 
 ### GET /api/students query parameters
 
@@ -80,7 +67,13 @@ GET /api/students?search=ali&status=Active&sort=name_asc
 - Surrounding spaces are stripped, so `search=%20ali%20` finds `Ali`.
 - Search matches plain text: `%` and `_` are ordinary characters, not
   SQL wildcards.
+- Search and sorting are Unicode-aware: `py_lower` (Python's `str.lower()`,
+  registered on every SQLite connection) is used instead of SQLite's
+  ASCII-only `lower()`/`NOCASE`, so `?search=али` finds `Алишер` and
+  `sort=name_asc` orders Cyrillic names correctly.
 - Any other `sort` value (for example `score_asc`) is rejected with 422.
+- Unknown query parameters (for example `?serch=ali`) are rejected with 422
+  so typos cannot silently return all students.
 
 ### PATCH rules
 
@@ -89,68 +82,14 @@ GET /api/students?search=ali&status=Active&sort=name_asc
 - `score` may be set to `null` to clear it.
 - `topic` and `status` may be left out but not set to `null`.
 
-### Learning records
-
-`POST /api/students/{id}/topics` accepts:
-
-```json
-{ "topic_key": "git-branches-prs", "status": "Completed" }
-```
-
-`topic_key` must be one of the keys returned by
-`GET /api/topics/catalogue`. Responses add `topic_name` and `skill` from
-the catalogue. Duplicate `(student, topic_key)` records return 409.
-
-`PATCH /api/students/{id}/topics/{topic_id}` accepts only
-`{"status": "Learning"}` or `{"status": "Completed"}`.
-
-### Projects
-
-`POST /api/students/{id}/projects` accepts:
-
-```json
-{
-  "title": "Student portfolio",
-  "description": "Shared cohort site.",
-  "contribution": "I implemented the Git branching workflow.",
-  "repository_link": "https://github.com/example/portfolio",
-  "status": "Completed",
-  "topic_ids": [3]
-}
-```
-
-`topic_ids` must be IDs of that student's learning records. Unknown IDs
-or IDs owned by another student return 422. Two students may use the same
-title and description; keep each student's own `contribution`.
-
-`PATCH /api/students/{id}/projects/{project_id}` accepts any subset of
-those fields. Sending `topic_ids` replaces the whole link set.
-
-### Profile and generated skills
-
-`GET /api/students/{id}/profile` returns the student, their topics and
-projects, generated skills and a small summary. Labels are calculated
-from the current records on every request:
-
-- Completed topic only → `Learned`.
-- Completed project linked to that topic → `Applied in a project`.
-- Learning topic → no skill.
-- Several topics with the same mapped skill → one skill entry.
-
-`GET /api/skills/summary` returns the NumPy matrix and both displayed
-summaries; `GET /api/projects/summary` returns pandas project counts and
-NumPy counts of students with applied skills.
-
 ## Errors
 
 | Status | When                                              | `detail` format                    |
 |--------|---------------------------------------------------|------------------------------------|
 | 422    | Invalid data (blank name, bad status, score > 100) | List of `{loc, msg, ...}` objects |
 | 422    | Unknown `sort` value (for example `score_asc`)     | List of `{loc, msg, ...}` objects |
+| 422    | Unknown query parameter (for example `serch`)      | List of `{loc, msg, ...}` objects |
 | 404    | `GET` or `PATCH` on an `id` that does not exist    | Text: `"Student 7 not found"`      |
-| 404    | Unknown topic or project record ID                | Text: `"Topic record 7 not found"` / `"Project 7 not found"` |
-| 409    | Same topic added twice to one student             | Text: `"Student 1 already has topic '...'"` |
-| 422    | Unknown catalogue key or invalid project link     | Text describing the bad key/ID     |
 
 Example 422 response:
 

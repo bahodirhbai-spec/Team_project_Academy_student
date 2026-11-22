@@ -1,242 +1,229 @@
-"""SQL for projects and their links to learning records (Hasan)."""
+"""Project repository: the only place that writes SQL for projects.
+
+Owner: Hasan. Other code asks this class for projects and never talks
+to SQLite directly, the same idea as repository.py for students.
+"""
 
 import sqlite3
+from collections import defaultdict
 
-from backend.config.business_rules import TOPIC_BY_KEY, ProjectStatus
+import pandas as pd
+
 from backend.database import Database
+from backend.errors import InvalidReferenceError, NotFoundError
 from backend.models import (
+    Project,
     ProjectCreate,
     ProjectUpdate,
-    StudentProject,
-    StudentTopic,
-    TopicStatus,
+    TopicRecordIds,
 )
+from backend.repository import ensure_student_exists
 
 SELECT_PROJECTS_SQL = (
-    "SELECT id, student_id, title, description, contribution, "
-    "repository_link, status FROM projects"
-)
-SELECT_TOPICS_SQL = (
-    "SELECT id, student_id, topic_key, status FROM student_topics"
+    "SELECT id, student_id, name, contribution, link, status "
+    "FROM projects WHERE student_id = :student_id"
 )
 
+# Columns the analytics code needs, already named for joining tables.
+PROJECTS_FRAME_SQL = (
+    "SELECT id AS project_id, student_id, name, contribution, link, "
+    "status FROM projects"
+)
+LINKS_FRAME_SQL = (
+    "SELECT project_id, topic_record_id, student_id FROM project_topics"
+)
 
-class ProjectNotFoundError(Exception):
-    """No project with this ID exists for this student."""
+# Fixed column types: an EMPTY table would otherwise get "object"
+# columns, and pandas refuses to join an object column to an int one.
+PROJECTS_FRAME_TYPES = {"project_id": "int64", "student_id": "int64"}
+LINKS_FRAME_TYPES = {
+    "project_id": "int64",
+    "topic_record_id": "int64",
+    "student_id": "int64",
+}
 
-    def __init__(self, project_id: int) -> None:
-        super().__init__(f"Project {project_id} not found")
-        self.project_id = project_id
 
+class ProjectNotFoundError(NotFoundError):
+    """Raised when the student has no project with the requested ID."""
 
-class InvalidTopicLinksError(Exception):
-    """Links must point to existing topics owned by the same student."""
-
-    def __init__(
-        self, missing: list[int], other_student: list[int]
-    ) -> None:
-        parts = []
-        if missing:
-            parts.append(f"unknown topic ids: {missing}")
-        if other_student:
-            parts.append(f"topic ids from another student: {other_student}")
-        super().__init__("; ".join(parts))
-        self.missing = missing
-        self.other_student = other_student
+    def __init__(self, student_id: int, project_id: int) -> None:
+        super().__init__(
+            f"Project {project_id} not found for student {student_id}"
+        )
 
 
 class ProjectRepository:
-    """Saves and loads projects; the only project SQL in the app."""
+    """Saves and loads projects and their linked topics in SQLite."""
 
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    def add(
-        self, student_id: int, new_project: ProjectCreate
-    ) -> StudentProject:
-        """Insert a project and its links in one transaction."""
-        data = new_project.model_dump(mode="json")
-        topic_ids = _unique_ids(data.pop("topic_ids"))
+    def list_for_student(self, student_id: int) -> list[Project]:
+        """Return all projects of one student, oldest first."""
         with self._database.connect() as connection:
-            _validate_links(connection, student_id, topic_ids)
+            ensure_student_exists(connection, student_id)
+            return _load_projects(connection, student_id)
+
+    def add(self, student_id: int, new_project: ProjectCreate) -> Project:
+        """Save a project and its topic links in ONE transaction.
+
+        If anything fails half way, nothing is saved: we never get a
+        project without its links, or links without their project.
+        """
+        data = new_project.model_dump(
+            mode="json", exclude={"topic_record_ids"}
+        )
+        topic_ids = new_project.topic_record_ids
+        with self._database.connect() as connection:
+            ensure_student_exists(connection, student_id)
+            _check_own_topics(connection, student_id, topic_ids)
             cursor = connection.execute(
                 "INSERT INTO projects "
-                "(student_id, title, description, contribution, "
-                "repository_link, status) "
-                "VALUES (:student_id, :title, :description, :contribution, "
-                ":repository_link, :status)",
+                "(student_id, name, contribution, link, status) "
+                "VALUES (:student_id, :name, :contribution, :link, :status)",
                 {"student_id": student_id, **data},
             )
             project_id = cursor.lastrowid
-            _insert_links(connection, project_id, topic_ids)
-            row = _get_project_row(connection, project_id)
-            linked_ids = _linked_topic_ids(connection, project_id)
-        return _row_to_project(row, linked_ids)
-
-    def list_for_student(self, student_id: int) -> list[StudentProject]:
-        """Return one student's projects with their own topic links."""
-        with self._database.connect() as connection:
-            rows = connection.execute(
-                f"{SELECT_PROJECTS_SQL} WHERE student_id = ? ORDER BY id",
-                (student_id,),
-            ).fetchall()
-            return [
-                _row_to_project(
-                    row, _linked_topic_ids(connection, row["id"])
-                )
-                for row in rows
-            ]
-
-    def list_all(self) -> list[StudentProject]:
-        """Return every project for the global pandas summary."""
-        with self._database.connect() as connection:
-            rows = connection.execute(
-                f"{SELECT_PROJECTS_SQL} ORDER BY student_id, id"
-            ).fetchall()
-            return [
-                _row_to_project(
-                    row, _linked_topic_ids(connection, row["id"])
-                )
-                for row in rows
-            ]
-
-    def list_topic_records(self) -> list[StudentTopic]:
-        """Read learning records to match completed projects to skills."""
-        with self._database.connect() as connection:
-            rows = connection.execute(
-                f"{SELECT_TOPICS_SQL} ORDER BY id"
-            ).fetchall()
-        return [_row_to_topic(row) for row in rows]
-
-    def get(self, student_id: int, project_id: int) -> StudentProject | None:
-        """Return a project only when it belongs to this student."""
-        with self._database.connect() as connection:
-            row = connection.execute(
-                f"{SELECT_PROJECTS_SQL} WHERE id = ? AND student_id = ?",
-                (project_id, student_id),
-            ).fetchone()
-            if row is None:
-                return None
-            return _row_to_project(
-                row, _linked_topic_ids(connection, project_id)
-            )
+            _replace_links(connection, student_id, project_id, topic_ids)
+            return _load_project(connection, student_id, project_id)
 
     def update(
         self, student_id: int, project_id: int, changes: ProjectUpdate
-    ) -> StudentProject:
-        """Patch sent fields and optionally replace all topic links."""
-        if self.get(student_id, project_id) is None:
-            raise ProjectNotFoundError(project_id)
-
+    ) -> Project:
+        """Change only the fields that were sent, then return the project."""
+        # exclude_unset: keep only the fields the client actually sent.
         data = changes.model_dump(mode="json", exclude_unset=True)
-        topic_ids_changed = "topic_ids" in data
-        topic_ids = _unique_ids(data.pop("topic_ids", []))
-        set_clause = ", ".join(f"{column} = ?" for column in data)
+        topic_ids = data.pop("topic_record_ids", None)
         with self._database.connect() as connection:
-            if topic_ids_changed:
-                _validate_links(connection, student_id, topic_ids)
-            if set_clause:
-                connection.execute(
-                    f"UPDATE projects SET {set_clause} WHERE id = ?",
-                    (*data.values(), project_id),
-                )
-            if topic_ids_changed:
-                connection.execute(
-                    "DELETE FROM project_topics WHERE project_id = ?",
-                    (project_id,),
-                )
-                _insert_links(connection, project_id, topic_ids)
-            row = _get_project_row(connection, project_id)
-            linked_ids = _linked_topic_ids(connection, project_id)
-        return _row_to_project(row, linked_ids)
+            _load_project(connection, student_id, project_id)  # 404 check
+            if data:
+                _update_columns(connection, project_id, data)
+            if topic_ids is not None:
+                _check_own_topics(connection, student_id, topic_ids)
+                _replace_links(connection, student_id, project_id, topic_ids)
+            return _load_project(connection, student_id, project_id)
+
+    def projects_frame(self) -> pd.DataFrame:
+        """All projects as a pandas table, for the analytics code."""
+        with self._database.connect() as connection:
+            return pd.read_sql_query(
+                PROJECTS_FRAME_SQL, connection, dtype=PROJECTS_FRAME_TYPES
+            )
+
+    def links_frame(self) -> pd.DataFrame:
+        """All project-topic links as a pandas table."""
+        with self._database.connect() as connection:
+            return pd.read_sql_query(
+                LINKS_FRAME_SQL, connection, dtype=LINKS_FRAME_TYPES
+            )
 
 
-def _unique_ids(topic_ids: list[int]) -> list[int]:
-    """Ignore repeated IDs; a project links to each topic only once."""
-    return list(dict.fromkeys(topic_ids))
+# ----- Helpers: each one does one small job inside an open connection -----
 
-
-def _validate_links(
-    connection: sqlite3.Connection, student_id: int, topic_ids: list[int]
+def _check_own_topics(
+    connection: sqlite3.Connection,
+    student_id: int,
+    topic_record_ids: TopicRecordIds,
 ) -> None:
-    """Reject unknown IDs and IDs owned by a different student."""
-    if not topic_ids:
+    """Every linked topic record must belong to THIS student.
+
+    The database would refuse a wrong link too (see database.py), but
+    checking first lets us send a clear message instead of a crash.
+    """
+    if not topic_record_ids:
         return
-    placeholders = ", ".join("?" for _ in topic_ids)
+    placeholders = ", ".join("?" for _ in topic_record_ids)
     rows = connection.execute(
-        f"SELECT id, student_id FROM student_topics "
-        f"WHERE id IN ({placeholders})",
-        tuple(topic_ids),
+        f"SELECT id FROM student_topics "
+        f"WHERE student_id = ? AND id IN ({placeholders})",
+        (student_id, *topic_record_ids),
     ).fetchall()
-    owners = {row["id"]: row["student_id"] for row in rows}
-    missing = [topic_id for topic_id in topic_ids if topic_id not in owners]
-    other_student = [
-        topic_id
-        for topic_id in topic_ids
-        if topic_id in owners and owners[topic_id] != student_id
-    ]
-    if missing or other_student:
-        raise InvalidTopicLinksError(missing, other_student)
+    found_ids = {row["id"] for row in rows}
+    foreign_ids = sorted(set(topic_record_ids) - found_ids)
+    if foreign_ids:
+        raise InvalidReferenceError(
+            f"Topic records {foreign_ids} do not belong to "
+            f"student {student_id}"
+        )
 
 
-def _insert_links(
-    connection: sqlite3.Connection, project_id: int, topic_ids: list[int]
+def _update_columns(
+    connection: sqlite3.Connection, project_id: int, data: dict
 ) -> None:
-    """Insert validated links; the table's PK stops accidental duplicates."""
+    """Run UPDATE for the plain columns (name, status, ...)."""
+    # The keys are Pydantic field names (a fixed, safe list), so it is
+    # safe to put them into the SQL text. Values still use "?".
+    set_clause = ", ".join(f"{column} = ?" for column in data)
+    connection.execute(
+        f"UPDATE projects SET {set_clause} WHERE id = ?",
+        (*data.values(), project_id),
+    )
+
+
+def _replace_links(
+    connection: sqlite3.Connection,
+    student_id: int,
+    project_id: int,
+    topic_record_ids: TopicRecordIds,
+) -> None:
+    """Make the project's links exactly the given list.
+
+    Deleting and inserting again is simpler than working out which
+    links were added and which were removed.
+    """
+    connection.execute(
+        "DELETE FROM project_topics WHERE project_id = ?", (project_id,)
+    )
     connection.executemany(
-        "INSERT INTO project_topics (project_id, topic_id) VALUES (?, ?)",
-        [(project_id, topic_id) for topic_id in topic_ids],
+        "INSERT INTO project_topics "
+        "(project_id, topic_record_id, student_id) VALUES (?, ?, ?)",
+        [(project_id, topic_id, student_id) for topic_id in topic_record_ids],
     )
 
 
-def _get_project_row(
-    connection: sqlite3.Connection, project_id: int
-) -> sqlite3.Row:
-    """Fetch a project row inside an open transaction."""
-    row = connection.execute(
-        f"{SELECT_PROJECTS_SQL} WHERE id = ?", (project_id,)
-    ).fetchone()
-    if row is None:
-        raise ProjectNotFoundError(project_id)
-    return row
+def _load_project(
+    connection: sqlite3.Connection, student_id: int, project_id: int
+) -> Project:
+    """Return one project, or raise ProjectNotFoundError (404)."""
+    projects = _load_projects(connection, student_id, project_id)
+    if not projects:
+        raise ProjectNotFoundError(student_id, project_id)
+    return projects[0]
 
 
-def _linked_topic_ids(
-    connection: sqlite3.Connection, project_id: int
-) -> list[int]:
-    """Return the project's own topic IDs in a stable order."""
+def _load_projects(
+    connection: sqlite3.Connection,
+    student_id: int,
+    project_id: int | None = None,
+) -> list[Project]:
+    """Read projects and attach the list of linked topic IDs to each."""
+    sql = SELECT_PROJECTS_SQL
+    values: dict[str, int] = {"student_id": student_id}
+    if project_id is not None:
+        sql += " AND id = :project_id"
+        values["project_id"] = project_id
+    project_rows = connection.execute(f"{sql} ORDER BY id", values)
+    links = _links_by_project(connection, student_id)
+    return [
+        Project(**dict(row), topic_record_ids=links[row["id"]])
+        for row in project_rows
+    ]
+
+
+def _links_by_project(
+    connection: sqlite3.Connection, student_id: int
+) -> dict[int, TopicRecordIds]:
+    """Map project ID -> sorted list of its topic record IDs.
+
+    One query for all of the student's links, instead of one query per
+    project. defaultdict gives [] for a project with no links.
+    """
     rows = connection.execute(
-        "SELECT topic_id FROM project_topics WHERE project_id = ? "
-        "ORDER BY topic_id",
-        (project_id,),
-    ).fetchall()
-    return [row["topic_id"] for row in rows]
-
-
-def _row_to_project(
-    row: sqlite3.Row, topic_ids: list[int]
-) -> StudentProject:
-    """Convert one project row plus its links into the API model."""
-    return StudentProject(
-        id=row["id"],
-        student_id=row["student_id"],
-        title=row["title"],
-        description=row["description"],
-        contribution=row["contribution"],
-        repository_link=row["repository_link"],
-        status=ProjectStatus(row["status"]),
-        topic_ids=topic_ids,
+        "SELECT project_id, topic_record_id FROM project_topics "
+        "WHERE student_id = ? ORDER BY topic_record_id",
+        (student_id,),
     )
-
-
-def _row_to_topic(row: sqlite3.Row) -> StudentTopic:
-    """Attach catalogue name and skill to a stored learning record."""
-    definition = TOPIC_BY_KEY[row["topic_key"]]
-    return StudentTopic(
-        id=row["id"],
-        student_id=row["student_id"],
-        topic_key=definition.key,
-        topic_name=definition.name,
-        skill=definition.skill,
-        status=TopicStatus(row["status"]),
-    )
+    links: dict[int, TopicRecordIds] = defaultdict(list)
+    for row in rows:
+        links[row["project_id"]].append(row["topic_record_id"])
+    return links

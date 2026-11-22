@@ -1,137 +1,160 @@
-"""SQL for the shared catalogue's student learning records (Bahodirjon)."""
+"""Topic repository: the only place that writes SQL for topics.
+
+Owner: Bahodirjon. Covers the shared topic catalogue and each
+student's topics (table student_topics).
+"""
 
 import sqlite3
 
-from backend.config.business_rules import TOPIC_BY_KEY, TopicStatus
+import pandas as pd
+
 from backend.database import Database
-from backend.models import StudentTopic, TopicCreate
-
-SELECT_TOPICS_SQL = (
-    "SELECT id, student_id, topic_key, status FROM student_topics"
+from backend.errors import ConflictError, InvalidReferenceError, NotFoundError
+from backend.models import (
+    CatalogueTopic,
+    TopicRecord,
+    TopicRecordCreate,
+    TopicRecordUpdate,
 )
+from backend.repository import ensure_student_exists
+
+# Each student topic joined with its catalogue row, so the answer
+# already has the topic's name and skill.
+SELECT_RECORDS_SQL = """
+    SELECT st.id, st.student_id, st.topic_id,
+           tc.name AS topic_name, tc.skill, st.status
+    FROM student_topics AS st
+    JOIN topic_catalogue AS tc ON tc.id = st.topic_id
+"""
+
+RECORDS_FRAME_SQL = """
+    SELECT st.id AS record_id, st.student_id,
+           tc.name AS topic_name, tc.skill, st.status
+    FROM student_topics AS st
+    JOIN topic_catalogue AS tc ON tc.id = st.topic_id
+"""
+
+# Fixed column types: an EMPTY table would otherwise get "object"
+# columns, and pandas refuses to join an object column to an int one.
+RECORDS_FRAME_TYPES = {"record_id": "int64", "student_id": "int64"}
 
 
-class DuplicateTopicError(Exception):
-    """The student already has this catalogue topic in their records."""
+class TopicRecordNotFoundError(NotFoundError):
+    """Raised when the student has no topic record with this ID."""
 
-    def __init__(self, student_id: int, topic_key: str) -> None:
+    def __init__(self, student_id: int, record_id: int) -> None:
         super().__init__(
-            f"Student {student_id} already has topic '{topic_key}'"
+            f"Topic record {record_id} not found for student {student_id}"
         )
-        self.student_id = student_id
-        self.topic_key = topic_key
-
-
-class TopicNotFoundError(Exception):
-    """No learning record with this ID exists for this student."""
-
-    def __init__(self, topic_id: int) -> None:
-        super().__init__(f"Topic record {topic_id} not found")
-        self.topic_id = topic_id
 
 
 class TopicRepository:
-    """Saves and loads student_topics rows; the only topic SQL in the app."""
+    """Saves and loads the catalogue and the students' topics."""
 
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    def add(self, student_id: int, new_topic: TopicCreate) -> StudentTopic:
-        """Insert one learning record; the DB unique constraint is final."""
-        values = {
-            "student_id": student_id,
-            "topic_key": new_topic.topic_key,
-            "status": new_topic.status.value,
-        }
-        try:
-            with self._database.connect() as connection:
-                cursor = connection.execute(
-                    "INSERT INTO student_topics "
-                    "(student_id, topic_key, status) "
-                    "VALUES (:student_id, :topic_key, :status)",
-                    values,
-                )
-                topic_id = cursor.lastrowid
-        except sqlite3.IntegrityError as error:
-            if "UNIQUE constraint failed" in str(error):
-                raise DuplicateTopicError(
-                    student_id, new_topic.topic_key
-                ) from error
-            raise
-        return StudentTopic(
-            id=topic_id,
-            student_id=student_id,
-            topic_key=new_topic.topic_key,
-            topic_name=TOPIC_BY_KEY[new_topic.topic_key].name,
-            skill=TOPIC_BY_KEY[new_topic.topic_key].skill,
-            status=new_topic.status,
-        )
-
-    def list_for_student(self, student_id: int) -> list[StudentTopic]:
-        """Return one student's learning records in insertion order."""
+    def list_catalogue(self) -> list[CatalogueTopic]:
+        """Return every topic a student can choose, A to Z."""
         with self._database.connect() as connection:
             rows = connection.execute(
-                f"{SELECT_TOPICS_SQL} WHERE student_id = ? ORDER BY id",
-                (student_id,),
-            ).fetchall()
-        return [_row_to_topic(row) for row in rows]
+                "SELECT id, name, skill FROM topic_catalogue ORDER BY name"
+            )
+            return [CatalogueTopic.model_validate(dict(row)) for row in rows]
 
-    def list_all(self) -> list[StudentTopic]:
-        """Return every learning record, needed by the global skill matrix."""
+    def list_for_student(self, student_id: int) -> list[TopicRecord]:
+        """Return one student's topics, oldest first."""
         with self._database.connect() as connection:
-            rows = connection.execute(
-                f"{SELECT_TOPICS_SQL} ORDER BY student_id, id"
-            ).fetchall()
-        return [_row_to_topic(row) for row in rows]
+            ensure_student_exists(connection, student_id)
+            return _load_records(connection, student_id)
 
-    def get_many(self, topic_ids: list[int]) -> list[StudentTopic]:
-        """Load several records for project-link validation."""
-        if not topic_ids:
-            return []
-        placeholders = ", ".join("?" for _ in topic_ids)
+    def add(
+        self, student_id: int, new_record: TopicRecordCreate
+    ) -> TopicRecord:
+        """Give a student a topic: 409 if it is already there,
+        422 if the topic is not in the catalogue."""
         with self._database.connect() as connection:
-            rows = connection.execute(
-                f"{SELECT_TOPICS_SQL} WHERE id IN ({placeholders}) "
-                "ORDER BY id",
-                tuple(topic_ids),
-            ).fetchall()
-        return [_row_to_topic(row) for row in rows]
-
-    def get(self, student_id: int, topic_id: int) -> StudentTopic | None:
-        """Return a record only when it belongs to this student."""
-        with self._database.connect() as connection:
-            row = connection.execute(
-                f"{SELECT_TOPICS_SQL} WHERE id = ? AND student_id = ?",
-                (topic_id, student_id),
-            ).fetchone()
-        return _row_to_topic(row) if row is not None else None
+            ensure_student_exists(connection, student_id)
+            _ensure_topic_in_catalogue(connection, new_record.topic_id)
+            _ensure_not_added_yet(connection, student_id, new_record.topic_id)
+            cursor = connection.execute(
+                "INSERT INTO student_topics (student_id, topic_id, status) "
+                "VALUES (?, ?, ?)",
+                (student_id, new_record.topic_id, new_record.status.value),
+            )
+            return _load_record(connection, student_id, cursor.lastrowid)
 
     def update_status(
-        self, student_id: int, topic_id: int, status: TopicStatus
-    ) -> StudentTopic:
-        """Change the status of one record and return the saved row."""
+        self, student_id: int, record_id: int, changes: TopicRecordUpdate
+    ) -> TopicRecord:
+        """Switch a topic between Learning and Completed."""
         with self._database.connect() as connection:
             cursor = connection.execute(
                 "UPDATE student_topics SET status = ? "
                 "WHERE id = ? AND student_id = ?",
-                (status.value, topic_id, student_id),
+                (changes.status.value, record_id, student_id),
             )
-            row = connection.execute(
-                f"{SELECT_TOPICS_SQL} WHERE id = ?", (topic_id,)
-            ).fetchone()
-        if cursor.rowcount == 0 or row is None:
-            raise TopicNotFoundError(topic_id)
-        return _row_to_topic(row)
+            if cursor.rowcount == 0:
+                raise TopicRecordNotFoundError(student_id, record_id)
+            return _load_record(connection, student_id, record_id)
+
+    def records_frame(self) -> pd.DataFrame:
+        """All students' topics as a pandas table, for the analytics."""
+        with self._database.connect() as connection:
+            return pd.read_sql_query(
+                RECORDS_FRAME_SQL, connection, dtype=RECORDS_FRAME_TYPES
+            )
 
 
-def _row_to_topic(row: sqlite3.Row) -> StudentTopic:
-    """Attach the catalogue name and skill to a stored learning record."""
-    definition = TOPIC_BY_KEY[row["topic_key"]]
-    return StudentTopic(
-        id=row["id"],
-        student_id=row["student_id"],
-        topic_key=definition.key,
-        topic_name=definition.name,
-        skill=definition.skill,
-        status=TopicStatus(row["status"]),
-    )
+# ----- Helpers: each one does one small job inside an open connection -----
+
+def _ensure_topic_in_catalogue(
+    connection: sqlite3.Connection, topic_id: int
+) -> None:
+    """Raise InvalidReferenceError (422) for an unknown topic ID."""
+    row = connection.execute(
+        "SELECT 1 FROM topic_catalogue WHERE id = ?", (topic_id,)
+    ).fetchone()
+    if row is None:
+        raise InvalidReferenceError(
+            f"Topic {topic_id} is not in the catalogue"
+        )
+
+
+def _ensure_not_added_yet(
+    connection: sqlite3.Connection, student_id: int, topic_id: int
+) -> None:
+    """Raise ConflictError (409) if the student already has the topic."""
+    row = connection.execute(
+        "SELECT 1 FROM student_topics WHERE student_id = ? AND topic_id = ?",
+        (student_id, topic_id),
+    ).fetchone()
+    if row is not None:
+        raise ConflictError(
+            f"Student {student_id} already has topic {topic_id}"
+        )
+
+
+def _load_record(
+    connection: sqlite3.Connection, student_id: int, record_id: int
+) -> TopicRecord:
+    """Return one topic record, or raise TopicRecordNotFoundError."""
+    records = _load_records(connection, student_id, record_id)
+    if not records:
+        raise TopicRecordNotFoundError(student_id, record_id)
+    return records[0]
+
+
+def _load_records(
+    connection: sqlite3.Connection,
+    student_id: int,
+    record_id: int | None = None,
+) -> list[TopicRecord]:
+    """Read a student's topic records (or just one of them)."""
+    sql = f"{SELECT_RECORDS_SQL} WHERE st.student_id = :student_id"
+    values: dict[str, int] = {"student_id": student_id}
+    if record_id is not None:
+        sql += " AND st.id = :record_id"
+        values["record_id"] = record_id
+    rows = connection.execute(f"{sql} ORDER BY st.id", values)
+    return [TopicRecord.model_validate(dict(row)) for row in rows]

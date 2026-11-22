@@ -4,13 +4,12 @@
 
 const API_BASE_URL = "/api";
 const STUDENT_STATUSES = ["Active", "Paused", "Completed"];
-const TOPIC_STATUSES = ["Learning", "Completed"];
-const PROJECT_STATUSES = ["In progress", "Completed"];
 const NO_SCORES_TEXT = "No scores yet.";
 const NO_STUDENTS_TEXT = "Hozircha o'quvchilar yo'q";
 const NO_MATCH_TEXT = "Qidiruvga mos o'quvchi topilmadi";
-const NO_DATA_TEXT = "Hozircha ma'lumot yo'q";
 const TABLE_COLUMN_COUNT = 7;
+const NO_SKILLS_TEXT = "Hali hech kimda ko'nikma yo'q";
+const PERCENT = 100;
 
 const elements = {
     form: document.getElementById("student-form"),
@@ -23,27 +22,16 @@ const elements = {
     totalCount: document.getElementById("total-count"),
     activeCount: document.getElementById("active-count"),
     averageScore: document.getElementById("average-score"),
-    listSection: document.getElementById("list-section"),
-    addSection: document.getElementById("add-section"),
-    filterSection: document.getElementById("filter_section"),
-    skillsSection: document.getElementById("skills-section"),
-    skillsError: document.getElementById("skills-error"),
-    learnedSkillsBody: document.getElementById("learned-skills-body"),
-    studentsPerSkillBody: document.getElementById("students-per-skill-body"),
-    appliedSkillsBody: document.getElementById("applied-skills-body"),
-    profileSection: document.getElementById("profile-section"),
-    profileHeading: document.getElementById("profile-heading"),
-    profileBack: document.getElementById("profile-back"),
-    profileError: document.getElementById("profile-error"),
-    profileMessage: document.getElementById("profile-message"),
-    profileContent: document.getElementById("profile-content"),
+    overviewError: document.getElementById("overview-error"),
+    progressBody: document.getElementById("progress-body"),
+    skillChart: document.getElementById("skill-chart"),
+    skillMatrix: document.getElementById("skill-matrix"),
 };
 
-// Students returned by the last API call; searching filters this in the browser.
-let studentsCache = [];
-let catalogueCache = [];
-let projectSummaryCache = null;
-let currentProfileId = null;
+// Search is sent to the API, so the table and /docs use the same rules.
+// Only the newest request is allowed to update the table.
+let loadStudentsRequest = 0;
+let searchDebounce = null;
 
 
 // ===== API: the only code that calls fetch() =====
@@ -71,9 +59,16 @@ function formatErrorDetail(detail) {
 }
 
 const api = {
-    listStudents: (status) => {
-        const query = status ? `?status=${encodeURIComponent(status)}` : "";
-        return requestJson(`/students${query}`);
+    listStudents: (status, search) => {
+        const params = new URLSearchParams();
+        if (status) {
+            params.set("status", status);
+        }
+        if (search) {
+            params.set("search", search);
+        }
+        const query = params.toString();
+        return requestJson(`/students${query ? `?${query}` : ""}`);
     },
     addStudent: (student) =>
         requestJson("/students", {
@@ -86,31 +81,7 @@ const api = {
             body: JSON.stringify(changes),
         }),
     getSummary: () => requestJson("/summary"),
-    getCatalogue: () => requestJson("/topics/catalogue"),
-    addTopic: (studentId, topic) =>
-        requestJson(`/students/${studentId}/topics`, {
-            method: "POST",
-            body: JSON.stringify(topic),
-        }),
-    updateTopic: (studentId, topicId, changes) =>
-        requestJson(`/students/${studentId}/topics/${topicId}`, {
-            method: "PATCH",
-            body: JSON.stringify(changes),
-        }),
-    addProject: (studentId, project) =>
-        requestJson(`/students/${studentId}/projects`, {
-            method: "POST",
-            body: JSON.stringify(project),
-        }),
-    updateProject: (studentId, projectId, changes) =>
-        requestJson(`/students/${studentId}/projects/${projectId}`, {
-            method: "PATCH",
-            body: JSON.stringify(changes),
-        }),
-    getProfile: (studentId) =>
-        requestJson(`/students/${studentId}/profile`),
-    getSkillSummary: () => requestJson("/skills/summary"),
-    getProjectSummary: () => requestJson("/projects/summary"),
+    getSkillOverview: () => requestJson("/skills/overview"),
 };
 
 
@@ -129,7 +100,8 @@ function showMessage(element, text) {
     element.textContent = text;  // empty text hides it (see .error:empty)
 }
 
-// textContent (not innerHTML) so user text is shown as text, never run as HTML.
+// textContent (not innerHTML) so a name like "<b>" is shown as text,
+// never run as HTML. This protects against XSS attacks.
 function createCell(content) {
     const cell = document.createElement("td");
     if (content instanceof Node) {
@@ -147,95 +119,40 @@ function createStatusBadge(status) {
     return badge;
 }
 
-function createButton(label, className, onClick, type = "button") {
+function createButton(label, className, onClick) {
     const button = document.createElement("button");
-    button.type = type;
+    button.type = "button";
     button.className = className;
     button.textContent = label;
     button.addEventListener("click", onClick);
     return button;
 }
 
-function createSelect(values, selected, multiple = false) {
+function createProfileLink(studentId) {
+    const link = document.createElement("a");
+    link.href = `profile.html?id=${studentId}`;
+    link.className = "button-small button-link";
+    link.textContent = "Profil";
+    return link;
+}
+
+function createStatusSelect(selectedStatus) {
     const select = document.createElement("select");
-    select.multiple = multiple;
-    for (const value of values) {
-        const option = new Option(value.label, value.value);
-        option.selected = multiple
-            ? selected.includes(value.value)
-            : value.value === selected;
+    for (const status of STUDENT_STATUSES) {
+        const option = new Option(status, status);
+        option.selected = status === selectedStatus;
         select.append(option);
     }
     return select;
 }
 
-function createStatusSelect(selectedStatus) {
-    return createSelect(
-        STUDENT_STATUSES.map((status) => ({ label: status, value: status })),
-        selectedStatus
-    );
-}
 
-function createLink(text, url) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.textContent = text;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    return link;
-}
-
-function createEmptyRow(text, columnCount) {
-    const row = document.createElement("tr");
-    row.className = "empty-row";
-    const cell = createCell(text);
-    cell.colSpan = columnCount;
-    row.append(cell);
-    return row;
-}
-
-function createCard(titleText) {
-    const card = document.createElement("section");
-    card.className = "profile-card";
-    const heading = document.createElement("h3");
-    heading.textContent = titleText;
-    card.append(heading);
-    return card;
-}
-
-function createField(labelText, input) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "field";
-    const label = document.createElement("label");
-    label.textContent = labelText;
-    label.htmlFor = input.id;
-    wrapper.append(label, input);
-    return wrapper;
-}
-
-function createInput(id, value = "", type = "text", placeholder = "") {
-    const input = document.createElement("input");
-    input.id = id;
-    input.type = type;
-    input.value = value;
-    input.placeholder = placeholder;
-    return input;
-}
-
-function createEmptyNote(text) {
-    const note = document.createElement("p");
-    note.className = "empty-note";
-    note.textContent = text;
-    return note;
-}
-
-
-// ===== Rendering the student table =====
+// ===== Rendering the table =====
 
 function renderStudents(students, emptyText = NO_STUDENTS_TEXT) {
     elements.tableBody.replaceChildren();
     if (students.length === 0) {
-        elements.tableBody.append(createEmptyRow(emptyText, TABLE_COLUMN_COUNT));
+        elements.tableBody.append(createEmptyRow(emptyText));
         return;
     }
     for (const student of students) {
@@ -243,17 +160,19 @@ function renderStudents(students, emptyText = NO_STUDENTS_TEXT) {
     }
 }
 
+function createEmptyRow(text) {
+    const row = document.createElement("tr");
+    row.className = "empty-row";
+    const cell = createCell(text);
+    cell.colSpan = TABLE_COLUMN_COUNT;
+    row.append(cell);
+    return row;
+}
+
 function createStudentRow(student) {
     const row = document.createElement("tr");
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
-    actions.append(
-        createButton("View Profile", "button-small", () => {
-            window.location.hash = `#profile/${student.id}`;
-        }),
-        createButton("Tahrirlash", "button-small", () =>
-            row.replaceWith(createEditRow(student))
-        )
+    const editButton = createButton("Tahrirlash", "button-small", () =>
+        row.replaceWith(createEditRow(student))
     );
     row.append(
         createCell(String(student.id)),
@@ -261,7 +180,8 @@ function createStudentRow(student) {
         createCell(student.topic),
         createCell(createStatusBadge(student.status)),
         createCell(formatScore(student.score)),
-        createCell(actions),
+        createCell(editButton),
+        createCell(createProfileLink(student.id)),
     );
     return row;
 }
@@ -270,13 +190,16 @@ function createEditRow(student) {
     const row = document.createElement("tr");
     row.className = "editing-row";
 
-    const topicInput = createInput("edit-topic", student.topic);
+    const topicInput = document.createElement("input");
+    topicInput.value = student.topic;
+
     const statusSelect = createStatusSelect(student.status);
-    const scoreInput = createInput(
-        "edit-score", student.score ?? "", "number"
-    );
+
+    const scoreInput = document.createElement("input");
+    scoreInput.type = "number";
     scoreInput.min = "0";
     scoreInput.max = "100";
+    scoreInput.value = student.score ?? "";
 
     const saveChanges = () =>
         handleUpdateStudent(student.id, {
@@ -300,6 +223,7 @@ function createEditRow(student) {
         createCell(statusSelect),
         createCell(scoreInput),
         createCell(actions),
+        createCell(""),
     );
     return row;
 }
@@ -312,76 +236,123 @@ function renderSummary(summary) {
 }
 
 
-// ===== Rendering the two global summaries =====
+// ===== Rendering the skills overview =====
 
-function renderSkillSummary(summary) {
-    elements.learnedSkillsBody.replaceChildren();
-    if (summary.progress_per_student.length === 0) {
-        elements.learnedSkillsBody.append(
-            createEmptyRow(NO_DATA_TEXT, 4)
+function renderOverview(overview) {
+    renderProgressTable(overview.students);
+    renderSkillChart(overview.skill_counts, overview.students.length);
+    renderSkillMatrix(overview);
+}
+
+function renderProgressTable(students) {
+    elements.progressBody.replaceChildren();
+    for (const student of students) {
+        const row = document.createElement("tr");
+        row.append(
+            createCell(student.name),
+            createCell(String(student.completed_topics)),
+            createCell(String(student.completed_projects)),
+            createCell(String(student.skill_count)),
         );
-    } else {
-        for (const row of summary.progress_per_student) {
-            const tr = document.createElement("tr");
-            tr.append(
-                createCell(row.name),
-                createCell(row.completed_topics),
-                createCell(row.completed_projects),
-                createCell(row.learned_skills),
-            );
-            elements.learnedSkillsBody.append(tr);
-        }
+        elements.progressBody.append(row);
     }
+}
 
-    elements.studentsPerSkillBody.replaceChildren();
-    for (const row of summary.students_per_skill) {
-        const tr = document.createElement("tr");
-        tr.append(createCell(row.skill), createCell(row.count));
-        elements.studentsPerSkillBody.append(tr);
+// One bar per skill; its length is the share of all students.
+function renderSkillChart(skillCounts, studentCount) {
+    elements.skillChart.replaceChildren();
+    if (skillCounts.length === 0) {
+        elements.skillChart.textContent = NO_SKILLS_TEXT;
+        return;
     }
+    for (const { skill, student_count: count } of skillCounts) {
+        elements.skillChart.append(
+            createBarRow(skill, count, (count / studentCount) * PERCENT)
+        );
+    }
+}
 
-    elements.appliedSkillsBody.replaceChildren();
-    const applied = ((projectSummaryCache || {}).students_per_applied_skill || [])
-        .filter((row) => row.count > 0);
-    if (applied.length === 0) {
-        elements.appliedSkillsBody.append(createEmptyRow(NO_DATA_TEXT, 2));
-    } else {
-        for (const row of applied) {
-            const tr = document.createElement("tr");
-            tr.append(createCell(row.skill), createCell(row.count));
-            elements.appliedSkillsBody.append(tr);
-        }
+function createBarRow(label, value, percent) {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+
+    const name = document.createElement("span");
+    name.className = "bar-label";
+    name.textContent = label;
+
+    const track = document.createElement("div");
+    track.className = "bar-track";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.width = `${percent}%`;
+    track.append(bar);
+
+    const number = document.createElement("span");
+    number.className = "bar-value";
+    number.textContent = String(value);
+
+    row.append(name, track, number);
+    return row;
+}
+
+// Header row = skill names; then one row per student with 1 or 0.
+function renderSkillMatrix({ skills, students, matrix }) {
+    if (skills.length === 0) {
+        elements.skillMatrix.replaceChildren();  // the chart says why
+        return;
     }
+    const header = document.createElement("tr");
+    header.append(document.createElement("th"));
+    for (const skill of skills) {
+        const cell = document.createElement("th");
+        cell.textContent = skill;
+        header.append(cell);
+    }
+    const head = document.createElement("thead");
+    head.append(header);
+
+    const body = document.createElement("tbody");
+    students.forEach((student, rowIndex) => {
+        const row = document.createElement("tr");
+        row.append(createCell(student.name));
+        for (const value of matrix[rowIndex]) {
+            const cell = createCell(String(value));
+            cell.className = value ? "has-skill" : "no-skill";
+            row.append(cell);
+        }
+        body.append(row);
+    });
+    elements.skillMatrix.replaceChildren(head, body);
 }
 
 
 // ===== Loading data from the API =====
 
-// Case-insensitive search in the name column.
-function matchesSearch(student, query) {
-    if (!query) {
-        return true;
-    }
-    const needle = query.toLocaleLowerCase();
-    return student.name.toLocaleLowerCase().includes(needle);
-}
-
-function renderFilteredStudents() {
-    const query = elements.searchInput.value.trim();
-    const filtered = studentsCache.filter((student) =>
-        matchesSearch(student, query)
-    );
-    renderStudents(filtered, query ? NO_MATCH_TEXT : NO_STUDENTS_TEXT);
-}
-
 async function loadStudents() {
+    const requestId = ++loadStudentsRequest;
+    const search = elements.searchInput.value.trim();
     try {
-        studentsCache = await api.listStudents(elements.statusFilter.value);
-        renderFilteredStudents();
+        const students = await api.listStudents(
+            elements.statusFilter.value,
+            search
+        );
+        // A slower earlier request must not overwrite a newer result.
+        if (requestId !== loadStudentsRequest) {
+            return;
+        }
+        renderStudents(students, search ? NO_MATCH_TEXT : NO_STUDENTS_TEXT);
         showMessage(elements.tableError, "");
     } catch (error) {
-        showMessage(elements.tableError, error.message);
+        if (requestId === loadStudentsRequest) {
+            showMessage(elements.tableError, error.message);
+        }
     }
+}
+
+// Wait for a short pause in typing before calling the API.
+function scheduleStudentsReload() {
+    window.clearTimeout(searchDebounce);
+    searchDebounce = window.setTimeout(loadStudents, 200);
 }
 
 async function loadSummary() {
@@ -392,394 +363,17 @@ async function loadSummary() {
     }
 }
 
-async function loadSkillSummary() {
+async function loadOverview() {
     try {
-        renderSkillSummary(await api.getSkillSummary());
-        showMessage(elements.skillsError, "");
+        renderOverview(await api.getSkillOverview());
+        showMessage(elements.overviewError, "");
     } catch (error) {
-        showMessage(elements.skillsError, error.message);
-    }
-}
-
-async function loadProjectSummary() {
-    try {
-        projectSummaryCache = await api.getProjectSummary();
-    } catch (error) {
-        showMessage(elements.skillsError, error.message);
-    }
-}
-
-async function loadCatalogue() {
-    try {
-        catalogueCache = await api.getCatalogue();
-    } catch (error) {
-        showMessage(elements.profileError, error.message);
+        showMessage(elements.overviewError, error.message);
     }
 }
 
 async function refreshPage() {
-    await Promise.all([
-        loadStudents(),
-        loadSummary(),
-        loadCatalogue(),
-        loadProjectSummary().then(loadSkillSummary),
-    ]);
-}
-
-
-// ===== Profile page =====
-
-function setProfileRoute(isProfile) {
-    for (const section of [
-        elements.listSection,
-        elements.addSection,
-        elements.filterSection,
-        elements.skillsSection,
-    ]) {
-        section.hidden = isProfile;
-    }
-    elements.profileSection.hidden = !isProfile;
-}
-
-async function loadProfile(studentId) {
-    currentProfileId = studentId;
-    showMessage(elements.profileError, "");
-    showMessage(elements.profileMessage, "");
-    try {
-        const result = await api.getProfile(studentId);
-        if (currentProfileId !== studentId) {
-            return;  // the user navigated away while the request was running
-        }
-        renderProfile(result);
-    } catch (error) {
-        elements.profileContent.replaceChildren();
-        showMessage(elements.profileError, error.message);
-    }
-}
-
-async function reloadProfile() {
-    if (currentProfileId !== null) {
-        await loadProfile(currentProfileId);
-        await refreshPage();
-    }
-}
-
-async function handleRouteChange() {
-    const match = /^#profile\/(\d+)$/.exec(window.location.hash);
-    if (!match) {
-        const wasProfile = currentProfileId !== null;
-        currentProfileId = null;
-        setProfileRoute(false);
-        if (wasProfile) {
-            await refreshPage();
-        }
-        return;
-    }
-    setProfileRoute(true);
-    await loadProfile(Number(match[1]));
-}
-
-function renderProfile(result) {
-    elements.profileHeading.textContent =
-        `${result.student.name} · ID ${result.student.id}`;
-    elements.profileContent.replaceChildren(
-        createProfileInfo(result),
-        createSkillsCard(result.skills),
-        createTopicsCard(result),
-        createProjectsCard(result),
-    );
-}
-
-function createProfileInfo(result) {
-    const card = createCard("O'quvchi ma'lumotlari");
-    const grid = document.createElement("div");
-    grid.className = "profile-grid";
-    const summary = result.summary;
-    const lines = [
-        `Ism: ${result.student.name}`,
-        `Joriy mavzu: ${result.student.topic}`,
-        `Holat: ${result.student.status}`,
-        `Baho: ${formatScore(result.student.score)}`,
-        `Tugatilgan mavzular: ${summary.completed_topics}`,
-        `Tugatilgan loyihalar: ${summary.completed_projects}`,
-        `O'rgangan ko'nikmalar: ${summary.learned_skills}`,
-    ];
-    for (const line of lines) {
-        const item = document.createElement("div");
-        item.className = "profile-card";
-        const text = document.createElement("p");
-        text.textContent = line;
-        item.append(text);
-        grid.append(item);
-    }
-    card.append(grid);
-    return card;
-}
-
-function createSkillsCard(skills) {
-    const card = createCard("Generatsiya qilingan ko'nikmalar");
-    if (skills.length === 0) {
-        card.append(createEmptyNote("Tugatilgan mavzu hali yo'q."));
-        return card;
-    }
-    const grid = document.createElement("div");
-    grid.className = "profile-grid";
-    for (const skill of skills) {
-        const item = document.createElement("div");
-        item.className = "profile-card";
-        const label = document.createElement("span");
-        label.className = `skill-label${skill.label.startsWith("Applied") ? " applied" : ""}`;
-        label.textContent = skill.label;
-        const title = document.createElement("p");
-        title.textContent = skill.name;
-        const topics = document.createElement("ul");
-        for (const topic of skill.topics) {
-            const li = document.createElement("li");
-            li.textContent = `${topic.name} (${topic.status})`;
-            topics.append(li);
-        }
-        item.append(label, title, topics);
-        if (skill.projects.length > 0) {
-            const projectsTitle = document.createElement("p");
-            projectsTitle.textContent = "Loyihalar:";
-            const projects = document.createElement("ul");
-            for (const project of skill.projects) {
-                const li = document.createElement("li");
-                li.append(
-                    createLink(project.title, project.repository_link),
-                    document.createTextNode(` — ${project.contribution}`)
-                );
-                projects.append(li);
-            }
-            item.append(projectsTitle, projects);
-        }
-        grid.append(item);
-    }
-    card.append(grid);
-    return card;
-}
-
-function createTopicsCard(profile) {
-    const card = createCard("O'rganilayotgan mavzular");
-    card.append(createTopicForm(profile));
-    if (profile.topics.length === 0) {
-        card.append(createEmptyNote("Hozircha mavzu qo'shilmagan."));
-        return card;
-    }
-    const list = document.createElement("ul");
-    list.className = "profile-list";
-    for (const topic of profile.topics) {
-        const li = document.createElement("li");
-        const name = document.createElement("span");
-        name.className = "grow";
-        name.textContent = `${topic.topic_name} → ${topic.skill}`;
-        const select = createSelect(
-            TOPIC_STATUSES.map((status) => ({ label: status, value: status })),
-            topic.status
-        );
-        select.addEventListener("change", () =>
-            handleUpdateTopic(profile.student.id, topic.id, select.value)
-        );
-        li.append(name, select);
-        list.append(li);
-    }
-    card.append(list);
-    return card;
-}
-
-function createTopicForm(profile) {
-    const available = catalogueCache.filter(
-        (item) => !profile.topics.some((topic) => topic.topic_key === item.key)
-    );
-    if (available.length === 0) {
-        return createEmptyNote("Katalogdagi barcha mavzular qo'shilgan.");
-    }
-    const form = document.createElement("form");
-    form.className = "profile-form";
-    const topicSelect = createSelect(
-        available.map((item) => ({ label: item.name, value: item.key })),
-        available[0].key
-    );
-    topicSelect.id = "new-topic-key";
-    const statusSelect = createSelect(
-        TOPIC_STATUSES.map((status) => ({ label: status, value: status })),
-        "Learning"
-    );
-    statusSelect.id = "new-topic-status";
-    const addButton = createButton(
-        "Mavzu qo'shish",
-        "button-small",
-        () => {},
-        "submit"
-    );
-    form.append(
-        createField("Mavzu", topicSelect),
-        createField("Holat", statusSelect),
-        addButton
-    );
-    form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        handleAddTopic(profile.student.id, {
-            topic_key: topicSelect.value,
-            status: statusSelect.value,
-        });
-    });
-    return form;
-}
-
-function createProjectsCard(profile) {
-    const card = createCard("Loyihalar");
-    card.append(createProjectForm(profile));
-    if (profile.projects.length === 0) {
-        card.append(createEmptyNote("Hozircha loyiha qo'shilmagan."));
-        return card;
-    }
-    const list = document.createElement("ul");
-    list.className = "profile-list";
-    for (const project of profile.projects) {
-        const li = document.createElement("li");
-        const details = document.createElement("div");
-        details.className = "grow";
-        const title = document.createElement("strong");
-        title.textContent = project.title;
-        const description = document.createElement("p");
-        description.textContent = project.description;
-        const contribution = document.createElement("p");
-        contribution.textContent = `Mening qilgan ishim: ${project.contribution}`;
-        const status = document.createElement("p");
-        status.textContent = `Holat: ${project.status}`;
-        details.append(
-            title,
-            description,
-            contribution,
-            status,
-            createLink("Repository", project.repository_link)
-        );
-        const editButton = createButton("Tahrirlash", "button-small", () =>
-            li.replaceChildren(createProjectForm(profile, project))
-        );
-        li.append(details, editButton);
-        list.append(li);
-    }
-    card.append(list);
-    return card;
-}
-
-function createProjectForm(profile, project = null) {
-    const form = document.createElement("form");
-    form.className = "profile-form";
-    const title = createInput("project-title", project?.title || "", "text", "Loyiha nomi");
-    const description = createInput(
-        "project-description", project?.description || "", "text", "Qisqa tavsif"
-    );
-    const contribution = createInput(
-        "project-contribution", project?.contribution || "", "text", "Shaxsiy hissam"
-    );
-    const link = createInput(
-        "project-link", project?.repository_link || "", "url", "https://..."
-    );
-    const status = createSelect(
-        PROJECT_STATUSES.map((value) => ({ label: value, value })),
-        project?.status || "In progress"
-    );
-    const topics = createSelect(
-        profile.topics.map((topic) => ({
-            label: topic.topic_name,
-            value: String(topic.id),
-        })),
-        project ? project.topic_ids.map(String) : [],
-        true
-    );
-    topics.id = "project-topic-ids";
-    topics.multiple = true;
-
-    const submit = createButton(
-        project ? "Saqlash" : "Loyiha qo'shish",
-        "button-small",
-        () => {},
-        "submit"
-    );
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
-    actions.append(submit);
-    if (project) {
-        actions.append(
-            createButton("Bekor", "button-small button-secondary", () =>
-                reloadProfile()
-            )
-        );
-    }
-
-    form.append(
-        createField("Sarlavha", title),
-        createField("Tavsif", description),
-        createField("Shaxsiy hissam", contribution),
-        createField("Repository havolasi", link),
-        createField("Holat", status),
-        createField("Bog'liq mavzular", topics),
-        actions
-    );
-    form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const payload = {
-            title: title.value,
-            description: description.value,
-            contribution: contribution.value,
-            repository_link: link.value,
-            status: status.value,
-            topic_ids: Array.from(topics.selectedOptions).map(Number),
-        };
-        if (project) {
-            handleUpdateProject(profile.student.id, project.id, payload);
-        } else {
-            handleAddProject(profile.student.id, payload);
-        }
-    });
-    return form;
-}
-
-async function handleAddTopic(studentId, topic) {
-    showMessage(elements.profileError, "");
-    try {
-        await api.addTopic(studentId, topic);
-        showMessage(elements.profileMessage, "Mavzu saqlandi.");
-        await reloadProfile();
-    } catch (error) {
-        showMessage(elements.profileError, error.message);
-    }
-}
-
-async function handleUpdateTopic(studentId, topicId, status) {
-    showMessage(elements.profileError, "");
-    try {
-        await api.updateTopic(studentId, topicId, { status });
-        showMessage(elements.profileMessage, "Mavzu holati yangilandi.");
-        await reloadProfile();
-    } catch (error) {
-        showMessage(elements.profileError, error.message);
-    }
-}
-
-async function handleAddProject(studentId, project) {
-    showMessage(elements.profileError, "");
-    try {
-        await api.addProject(studentId, project);
-        showMessage(elements.profileMessage, "Loyiha saqlandi.");
-        await reloadProfile();
-    } catch (error) {
-        showMessage(elements.profileError, error.message);
-    }
-}
-
-async function handleUpdateProject(studentId, projectId, changes) {
-    showMessage(elements.profileError, "");
-    try {
-        await api.updateProject(studentId, projectId, changes);
-        showMessage(elements.profileMessage, "Loyiha yangilandi.");
-        await reloadProfile();
-    } catch (error) {
-        showMessage(elements.profileError, error.message);
-    }
+    await Promise.all([loadStudents(), loadSummary(), loadOverview()]);
 }
 
 
@@ -826,10 +420,5 @@ async function handleUpdateStudent(studentId, changes) {
 
 elements.form.addEventListener("submit", handleFormSubmit);
 elements.statusFilter.addEventListener("change", loadStudents);
-elements.searchInput.addEventListener("input", renderFilteredStudents);
-elements.profileBack.addEventListener("click", () => {
-    window.location.hash = "";
-});
-window.addEventListener("hashchange", handleRouteChange);
+elements.searchInput.addEventListener("input", scheduleStudentsReload);
 refreshPage();  // on every page load, ask the API for saved students
-handleRouteChange();

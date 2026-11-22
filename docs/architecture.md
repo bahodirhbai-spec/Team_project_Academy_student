@@ -20,35 +20,20 @@ backend/
   config/        All configurable values, in two files:
     settings.py        where the app runs: .env, port, paths
     business_rules.py  score range, text length, statuses
-  models.py           Pydantic models: data format and validation
-  database.py         SQLite connections and all CREATE TABLE statements
-  repository.py       All SQL queries for students
-  topic_repository.py All SQL for learning records (Bahodirjon)
-  project_repository.py All SQL for projects and links (Hasan)
-  topic_analytics.py  pandas topic frames + NumPy skill matrix
-  project_analytics.py pandas project frames + NumPy applied counts
-  skill_analytics.py  pandas join producing generated skills
-  services.py         Business logic: summary, NumPy average
-  topic_service.py    Catalogue, learning records, matrix summary
-  project_service.py  Projects, links, project summary
-  profile_service.py  Integration: profile + combined summary
-  routes.py           Existing student endpoints
-  topic_routes.py     Topic and catalogue endpoints
-  project_routes.py   Project endpoints
-  profile_routes.py   View Profile endpoint
-  main.py             Builds the FastAPI app, serves the frontend
-  __main__.py         "python -m backend": starts uvicorn from settings
+  models.py      Pydantic models: data format and validation
+  database.py    SQLite connection and table creation
+  repository.py  All SQL queries for students
+  services.py    Business logic: summary, NumPy average
+  routes.py      The API endpoints
+  main.py        Builds the FastAPI app, serves the frontend
+  __main__.py    "python -m backend": starts uvicorn from settings
 frontend/
-  index.html          The page + profile view
-  index.css           The styles
-  app.js              Calls the API and updates the page
+  index.html     The page
+  index.css      The styles
+  app.js         Calls the API and updates the page
 tests/
-  test_api.py         Existing student endpoint tests
-  test_topics.py      Topic and matrix tests (Bahodirjon)
-  test_projects.py    Project and link tests (Hasan)
-  test_profile.py     Cross-feature profile and review tests
-  test_frontend.py    Static asset wiring checks
-docs/                 Detailed documentation (this folder)
+  test_api.py    Tests for every endpoint and rule
+docs/            Detailed documentation (this folder)
 ```
 
 ## Layers (Clean Architecture)
@@ -59,9 +44,9 @@ Each file has one responsibility, and dependencies point inward:
 |-----------------------|----------------------------------|--------------------------|
 | Business rules        | `config/business_rules.py`       | nothing in the project   |
 | Domain models         | `models.py`                      | business rules           |
-| Business logic        | `services.py`, `topic_service.py`, `project_service.py`, `profile_service.py`, `*_analytics.py` | models, business rules, pandas, NumPy |
-| Data access           | `database.py`, `repository.py`, `topic_repository.py`, `project_repository.py` | models, business rules |
-| Web (HTTP)            | `routes.py`, `topic_routes.py`, `project_routes.py`, `profile_routes.py` | everything above, settings |
+| Business logic        | `services.py`                    | models, business rules   |
+| Data access           | `database.py`, `repository.py`   | models, business rules   |
+| Web (HTTP)            | `routes.py`                      | everything above, settings |
 | Startup ("Main")      | `main.py`, `__main__.py`, `config/settings.py` | everything |
 
 The two config files sit at opposite ends on purpose. The business
@@ -96,20 +81,6 @@ Consequences:
 6. `app.js` shows a success message and reloads the table and summary.
 7. On every page load, `app.js` calls `GET /api/students` and
    `GET /api/summary` again, so the page always shows what is saved.
-
-## Request flow: View Profile
-
-1. The table's **View Profile** button sets `#profile/3` in the URL.
-2. `app.js` calls `GET /api/students/3/profile`.
-3. `ProfileService` loads the student, their learning records and their
-   projects through the repositories.
-4. `skill_analytics.py` merges completed topics with completed project
-   evidence in pandas and calculates each skill label. Nothing about the
-   label is written to SQLite.
-5. `topic_analytics.py` builds the NumPy matrix for the global summary;
-   `project_analytics.py` combines project rows with it for the counts.
-6. The page renders cards with text nodes and validated links, so a
-   student-entered repository URL cannot inject HTML.
 
 ## Configuration vs business rules
 

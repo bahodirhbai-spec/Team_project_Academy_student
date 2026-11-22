@@ -302,6 +302,7 @@ tbody tr:hover { background: #f0f5ff; }
 .status-Active    { background: #e4f4ea; color: #1e7a4c; }
 .status-Paused    { background: #fcefd2; color: #7a4f00; }
 .status-Completed { background: #e3eafb; color: #24448f; }
+.status-Learning  { background: #fcefd2; color: #7a4f00; }
 
 /* ===== HASAN: tahrirlash (edit) ===== */
 .button-small {
@@ -399,131 +400,6 @@ tbody tr:hover { background: #f0f5ff; }
     border-top: 1px solid var(--border);
 }
 
-/* ===== BAHODIRJON + HASAN: summary tables and profile ===== */
-#skills-section h3 {
-    margin: 0 0 10px;
-    font-size: 14px;
-    color: var(--muted);
-}
-
-.summary-tables {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-}
-
-.compact-table {
-    min-width: 0;
-    margin-bottom: 22px;
-    table-layout: auto;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-}
-
-.compact-table th,
-.compact-table td {
-    padding: 10px 12px;
-    font-size: 13px;
-}
-
-.compact-table tbody tr:nth-child(even) { background: #fafbfc; }
-
-#profile-section[hidden],
-#list-section[hidden],
-#add-section[hidden],
-#filter_section[hidden],
-#skills-section[hidden] { display: none; }
-
-.profile-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 14px;
-    margin-bottom: 24px;
-}
-
-.profile-card {
-    padding: 16px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg);
-}
-
-.profile-card h3 {
-    margin: 0 0 8px;
-    font-size: 14px;
-}
-
-.profile-card p {
-    margin: 4px 0;
-    font-size: 14px;
-    color: var(--muted);
-}
-
-.profile-card ul {
-    margin: 8px 0 0;
-    padding-left: 18px;
-    font-size: 13px;
-}
-
-.profile-card li { margin-bottom: 6px; }
-
-.profile-card a { color: var(--accent-dark); }
-
-.skill-label {
-    display: inline-block;
-    margin: 0 0 6px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    background: #e4f4ea;
-    color: #1e7a4c;
-}
-
-.skill-label.applied {
-    background: #e3eafb;
-    color: #24448f;
-}
-
-.profile-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    align-items: end;
-    margin: 12px 0 18px;
-    padding: 14px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: #fafbfc;
-}
-
-.profile-form button { width: auto; height: 44px; }
-
-.profile-form .wide { grid-column: 1 / -1; }
-
-.profile-list { margin: 0; padding: 0; list-style: none; }
-
-.profile-list li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid #eef0f3;
-}
-
-.profile-list li:last-child { border-bottom: none; }
-
-.profile-list .grow { flex: 1 1 180px; }
-
-.profile-list select { height: 36px; }
-
-.empty-note {
-    margin: 6px 0 0;
-    font-size: 14px;
-    color: var(--muted);
-}
-
 /* ===== Telefon uchun ===== */
 @media (max-width: 640px) {
     .tagline { display: none; }
@@ -532,9 +408,96 @@ tbody tr:hover { background: #f0f5ff; }
     #filter_section select { width: 100%; }
     .section-header { flex-direction: column; align-items: flex-start; }
     .section-header input[type="search"] { width: 100%; }
-    .summary-tables { grid-template-columns: 1fr; }
-    .profile-form { grid-template-columns: 1fr; }
-    .profile-form button { width: 100%; }
     section { padding: 18px; }
     button { width: 100%; }
 }
+/* ===== Profil havolasi (asosiy jadval) ===== */
+.button-link {
+    display: inline-block;
+    line-height: 36px;  /* same height as .button-small buttons */
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+}
+.button-link:hover { background: var(--accent-dark); }
+
+/* ===== Oddiy jadvallar: ustun kengligi avtomatik ===== */
+.plain-table th, .plain-table td { width: auto; }
+.matrix-table th, .matrix-table td { text-align: center; }
+.matrix-table td:first-child, .matrix-table th:first-child { text-align: left; }
+.has-skill { background: #e4f4ea; color: #1e7a4c; font-weight: 700; }
+.no-skill  { color: var(--muted); }
+
+h3 { font-size: 15px; margin: 18px 0 10px; }
+.muted { color: var(--muted); margin: 4px 0 0; }
+
+/* ===== Ko'nikmalar grafigi (chiziqli) ===== */
+.skill-chart { display: grid; gap: 8px; }
+.bar-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 220px) 1fr 32px;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+.bar-track { background: var(--bg); border-radius: 4px; height: 14px; }
+.bar { background: var(--accent); border-radius: 4px; height: 100%; min-width: 2px; }
+.bar-value { font-weight: 700; text-align: right; }
+
+/* ===== Profil sahifasi ===== */
+.back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+.skill-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.skill-card {
+    display: grid;
+    gap: 2px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-left: 4px solid #d98e04;
+    border-radius: 8px;
+    background: var(--card);
+    font-size: 14px;
+}
+.skill-card span { color: var(--muted); font-size: 12px; }
+.skill-card.applied { border-left-color: #1e7a4c; }
+.skill-projects { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+.skill-projects a { color: inherit; }
+
+.inline-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.inline-form select { flex: 1 1 260px; }
+
+.project-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+}
+.field-wide { grid-column: 1 / -1; }
+.label { font-size: 13px; font-weight: 600; }
+textarea {
+    width: 100%;
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.topic-checkboxes { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+.topic-checkboxes label { font-weight: 400; }
+
+.project-list { display: grid; gap: 12px; margin-top: 12px; }
+.project-card {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+}
+.project-card h3 { margin: 0; }
+.project-card p { margin: 0; }
+.project-card a { color: var(--accent); word-break: break-all; }
+.project-card .button-small { justify-self: start; }
+.project-topics { color: var(--muted); font-size: 13px; }
+.topic-checkboxes input[type="checkbox"] { height: auto; }
+.project-card.editing input,
+.project-card.editing select { width: 100%; }

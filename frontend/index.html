@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Akademiya o'quvchilari</title>
-    <link rel="stylesheet" href="index.css?v=5">
+    <link rel="stylesheet" href="index.css?v=6">
 </head>
 <body>
 
@@ -26,50 +26,6 @@
             <div class="stat stat-total">Jami o'quvchilar: <span id="total-count">0</span></div>
             <div class="stat stat-active">Faol o'quvchilar: <span id="active-count">0</span></div>
             <div class="stat stat-average">O'rtacha baho: <span id="average-score">No scores yet.</span></div>
-        </section>
-
-        <!-- ===== BAHODIRJON + HASAN: ko'nikma xulosalari ===== -->
-        <section id="skills-section">
-            <h2>Ko'nikmalar xulosasi</h2>
-            <p id="skills-error" class="error"></p>
-            <div class="summary-tables">
-                <div>
-                    <h3>O'quvchi bo'yicha</h3>
-                    <table class="compact-table">
-                        <thead>
-                            <tr>
-                                <th>O'quvchi</th>
-                                <th>Tugatilgan mavzu</th>
-                                <th>Tugatilgan loyiha</th>
-                                <th>O'rgangan ko'nikma</th>
-                            </tr>
-                        </thead>
-                        <tbody id="learned-skills-body"></tbody>
-                    </table>
-                </div>
-                <div>
-                    <h3>Ko'nikma bo'yicha</h3>
-                    <table class="compact-table">
-                        <thead>
-                            <tr>
-                                <th>Ko'nikma</th>
-                                <th>O'quvchilar soni</th>
-                            </tr>
-                        </thead>
-                        <tbody id="students-per-skill-body"></tbody>
-                    </table>
-                    <h3>Loyihada qo'llangan ko'nikma</h3>
-                    <table class="compact-table">
-                        <thead>
-                            <tr>
-                                <th>Ko'nikma</th>
-                                <th>O'quvchilar soni</th>
-                            </tr>
-                        </thead>
-                        <tbody id="applied-skills-body"></tbody>
-                    </table>
-                </div>
-            </div>
         </section>
 
         <!-- ===== BAHODIRJON: o'quvchi qo'shish formasi ===== -->
@@ -133,7 +89,8 @@
                             <th>Joriy mavzu</th>
                             <th>Holat</th>
                             <th>Baho</th>
-                            <th>Harakatlar</th>
+                            <th>Tahrirlash</th>
+                            <th>Profil</th>
                         </tr>
                     </thead>
                     <tbody id="students-body">
@@ -143,17 +100,33 @@
             </div>
         </section>
 
-        <!-- ===== TOGETHER: View Profile sahifasi ===== -->
-        <section id="profile-section" hidden>
-            <div class="section-header">
-                <h2 id="profile-heading">O'quvchi profili</h2>
-                <button type="button" id="profile-back" class="button-secondary">
-                    Orqaga
-                </button>
+        <!-- ===== BIRGA: ko'nikmalar xulosasi (GET /api/skills/overview) ===== -->
+        <section id="overview-section">
+            <h2>Ko'nikmalar xulosasi</h2>
+            <p id="overview-error" class="error"></p>
+
+            <h3>O'quvchilar bo'yicha</h3>
+            <div class="table-wrap">
+                <table class="plain-table">
+                    <thead>
+                        <tr>
+                            <th>O'quvchi</th>
+                            <th>Tugatilgan mavzular</th>
+                            <th>Tugatilgan loyihalar</th>
+                            <th>Ko'nikmalar soni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="progress-body"></tbody>
+                </table>
             </div>
-            <p id="profile-error" class="error"></p>
-            <p id="profile-message" class="success"></p>
-            <div id="profile-content"></div>
+
+            <h3>Har bir ko'nikma nechta o'quvchida</h3>
+            <div id="skill-chart" class="skill-chart"></div>
+
+            <h3>Matritsa (1 = ko'nikma bor)</h3>
+            <div class="table-wrap">
+                <table id="skill-matrix" class="plain-table matrix-table"></table>
+            </div>
         </section>
 
     </main>

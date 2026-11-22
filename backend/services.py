@@ -27,23 +27,3 @@ def _average(scores: list[int], decimals: int) -> float | None:
     if not scores:
         return None
     return round(float(np.mean(scores)), decimals)
-
-
-def list_students(database, status=None, search=None, sort=None):
-    """Convenience wrapper used outside the API routes.
-
-    StudentQuery applies the same stripping and blank-search rules as the
-    HTTP route, so calling this helper cannot bypass validation.
-    """
-    from backend.models import StudentQuery
-    from backend.repository import StudentRepository
-
-    query = StudentQuery(status=status, search=search, sort=sort)
-    return StudentRepository(database).list_all(query)
-
-
-def get_student(database, student_id: int):
-    """Load one student through the same repository the routes use."""
-    from backend.repository import StudentRepository
-
-    return StudentRepository(database).get(student_id)

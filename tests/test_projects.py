@@ -1,8 +1,4 @@
-"""Tests for project records, topic links and project summaries.
-
-Owner: Hasan. Learning records are seeded through the repository layer in
-this branch because the topic API is developed in parallel.
-"""
+"""API tests for a student's projects (owner: Hasan)."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -12,254 +8,221 @@ from fastapi.testclient import TestClient
 
 from backend.config.settings import Settings
 from backend.main import create_app
+from backend.project_repository import ProjectRepository
 
-STUDENT = {"name": "Hasan", "topic": "Python", "status": "Active", "score": 80}
+STUDENT = {"name": "Hasan", "topic": "Python", "status": "Active"}
+PROJECT = {
+    "name": "Academy tracker",
+    "contribution": "Wrote the project endpoints",
+    "link": "https://github.com/example/tracker",
+}
+MISSING_ID = 999
 
 
 @pytest.fixture
-def project_client(tmp_path: Path) -> Iterator[TestClient]:
-    settings = Settings(database_path=tmp_path / "projects.db")
-    with TestClient(create_app(settings)) as client:
-        yield client
+def client(tmp_path: Path) -> Iterator[TestClient]:
+    """A test client whose app uses a temporary SQLite file."""
+    settings = Settings(database_path=tmp_path / "test.db")
+    with TestClient(create_app(settings)) as test_client:
+        yield test_client
 
 
-def add_student(client: TestClient, name="Hasan") -> dict:
-    response = client.post("/api/students", json={**STUDENT, "name": name})
-    assert response.status_code == 201
-    return response.json()
+def add_student(client: TestClient) -> int:
+    """Add a student through the API and return its ID."""
+    return client.post("/api/students", json=STUDENT).json()["id"]
 
 
-def seed_topic(
-    client: TestClient,
-    student_id: int,
-    topic_key: str,
-    status: str = "Completed",
-) -> int:
-    """Insert a learning record directly; parallel branch owns its API."""
+def add_topic_record(client: TestClient, student_id: int, name: str) -> int:
+    """Give a student a topic, straight in SQL.
+
+    Bahodirjon's topic endpoints are on another branch, so the test
+    writes the rows itself.
+    """
     with client.app.state.database.connect() as connection:
-        cursor = connection.execute(
-            "INSERT INTO student_topics (student_id, topic_key, status) "
-            "VALUES (?, ?, ?)",
-            (student_id, topic_key, status),
+        connection.execute(
+            "INSERT OR IGNORE INTO topic_catalogue (name, skill) "
+            "VALUES (?, ?)",
+            (name, f"{name} skill"),
         )
-        return cursor.lastrowid
+        topic_id = connection.execute(
+            "SELECT id FROM topic_catalogue WHERE name = ?", (name,)
+        ).fetchone()["id"]
+        cursor = connection.execute(
+            "INSERT INTO student_topics (student_id, topic_id, status) "
+            "VALUES (?, ?, 'Completed')",
+            (student_id, topic_id),
+        )
+    return cursor.lastrowid
 
 
-def project_payload(topic_ids: list[int], **changes) -> dict:
-    return {
-        "title": "Student portfolio",
-        "description": "A shared portfolio site for the academy cohort.",
-        "contribution": "I implemented Git branches and the PR review flow.",
-        "repository_link": "https://github.com/example/portfolio",
-        "status": "In progress",
-        "topic_ids": topic_ids,
-        **changes,
-    }
+def projects_url(student_id: int) -> str:
+    """Address of one student's projects."""
+    return f"/api/students/{student_id}/projects"
 
 
-def add_project(client: TestClient, student_id: int, payload: dict) -> dict:
-    response = client.post(
-        f"/api/students/{student_id}/projects", json=payload
-    )
+# ----- Adding and listing -----
+
+def test_add_project_returns_it_with_id_and_defaults(client: TestClient):
+    student_id = add_student(client)
+    response = client.post(projects_url(student_id), json=PROJECT)
     assert response.status_code == 201
-    return response.json()
-
-
-def test_add_project_with_its_own_topic_links(project_client: TestClient):
-    student = add_student(project_client)
-    topic_id = seed_topic(project_client, student["id"], "git-branches-prs")
-    saved = add_project(
-        project_client, student["id"], project_payload([topic_id])
-    )
-    assert saved["student_id"] == student["id"]
-    assert saved["topic_ids"] == [topic_id]
-    assert "Git" in saved["contribution"]
-    listed = project_client.get(
-        f"/api/students/{student['id']}/projects"
-    ).json()
-    assert [project["id"] for project in listed] == [saved["id"]]
-
-
-def test_two_students_can_describe_the_same_team_project(
-    project_client: TestClient,
-):
-    hasan = add_student(project_client, "Hasan")
-    bahodir = add_student(project_client, "Bahodirjon")
-    hasan_topic = seed_topic(project_client, hasan["id"], "git-branches-prs")
-    bahodir_topic = seed_topic(
-        project_client, bahodir["id"], "git-branches-prs"
-    )
-    payload = project_payload([hasan_topic], status="Completed")
-    add_project(project_client, hasan["id"], payload)
-    add_project(
-        project_client,
-        bahodir["id"],
-        {
-            **payload,
-            "topic_ids": [bahodir_topic],
-            "contribution": "I set up the pull request review checklist.",
-        },
-    )
-    records = project_client.get("/api/projects/summary").json()
-    assert records["total_projects"] == 2
-    contributions = {
-        item["projects"][0]["contribution"]
-        for item in records["applied_skills"]
-        if item["projects"]
+    assert response.json() == {
+        "id": 1,
+        "student_id": student_id,
+        **PROJECT,
+        "status": "In progress",
+        "topic_record_ids": [],
     }
-    assert len(contributions) == 2
 
 
-def test_unknown_and_foreign_topic_links_are_rejected(
-    project_client: TestClient,
-):
-    hasan = add_student(project_client, "Hasan")
-    bahodir = add_student(project_client, "Bahodirjon")
-    foreign_topic = seed_topic(
-        project_client, bahodir["id"], "git-branches-prs"
-    )
-
-    unknown = project_client.post(
-        f"/api/students/{hasan['id']}/projects",
-        json=project_payload([999]),
-    )
-    assert unknown.status_code == 422
-    assert "unknown topic ids" in unknown.json()["detail"]
-
-    foreign = project_client.post(
-        f"/api/students/{hasan['id']}/projects",
-        json=project_payload([foreign_topic]),
-    )
-    assert foreign.status_code == 422
-    assert "another student" in foreign.json()["detail"]
-    assert (
-        project_client.get(f"/api/students/{hasan['id']}/projects").json()
-        == []
-    )
+def test_add_project_links_own_topics_once(client: TestClient):
+    student_id = add_student(client)
+    git = add_topic_record(client, student_id, "Git")
+    sql = add_topic_record(client, student_id, "SQL")
+    body = {**PROJECT, "topic_record_ids": [sql, git, git]}
+    saved = client.post(projects_url(student_id), json=body).json()
+    assert saved["topic_record_ids"] == [git, sql]
 
 
-def test_project_status_and_topic_links_can_be_updated(
-    project_client: TestClient,
-):
-    student = add_student(project_client)
-    first_topic = seed_topic(project_client, student["id"], "git-branches-prs")
-    second_topic = seed_topic(
-        project_client, student["id"], "numpy-arrays-operations"
-    )
-    saved = add_project(
-        project_client, student["id"], project_payload([first_topic])
-    )
-    response = project_client.patch(
-        f"/api/students/{student['id']}/projects/{saved['id']}",
-        json={"status": "Completed", "topic_ids": [second_topic]},
+def test_list_projects_shows_only_that_students_projects(client: TestClient):
+    hasan = add_student(client)
+    other = add_student(client)
+    client.post(projects_url(hasan), json=PROJECT)
+    client.post(projects_url(other), json={**PROJECT, "name": "Other"})
+    names = [p["name"] for p in client.get(projects_url(hasan)).json()]
+    assert names == ["Academy tracker"]
+
+
+def test_projects_of_missing_student_is_404(client: TestClient):
+    assert client.get(projects_url(MISSING_ID)).status_code == 404
+    response = client.post(projects_url(MISSING_ID), json=PROJECT)
+    assert response.status_code == 404
+
+
+# ----- Validation -----
+
+@pytest.mark.parametrize(
+    "bad_field",
+    [
+        {"name": "   "},
+        {"contribution": ""},
+        {"status": "Sleeping"},
+        {"link": "github.com/example"},
+        {"link": "ftp://example.com"},
+    ],
+)
+def test_invalid_project_is_rejected(client: TestClient, bad_field: dict):
+    student_id = add_student(client)
+    response = client.post(projects_url(student_id), json={
+        **PROJECT, **bad_field,
+    })
+    assert response.status_code == 422
+
+
+def test_linking_another_students_topic_is_rejected(client: TestClient):
+    hasan = add_student(client)
+    other = add_student(client)
+    others_topic = add_topic_record(client, other, "Git")
+    body = {**PROJECT, "topic_record_ids": [others_topic]}
+    response = client.post(projects_url(hasan), json=body)
+    assert response.status_code == 422
+    assert "do not belong" in response.json()["detail"]
+    assert client.get(projects_url(hasan)).json() == []  # nothing saved
+
+
+# ----- Updating -----
+
+def test_update_changes_only_sent_fields(client: TestClient):
+    student_id = add_student(client)
+    client.post(projects_url(student_id), json=PROJECT)
+    response = client.patch(
+        f"{projects_url(student_id)}/1", json={"status": "Completed"}
     )
     assert response.status_code == 200
     assert response.json()["status"] == "Completed"
-    assert response.json()["topic_ids"] == [second_topic]
+    assert response.json()["name"] == PROJECT["name"]
 
 
-def test_invalid_project_updates_and_unknown_ids(project_client: TestClient):
-    student = add_student(project_client)
-    topic_id = seed_topic(project_client, student["id"], "git-branches-prs")
-    saved = add_project(
-        project_client, student["id"], project_payload([topic_id])
+def test_update_replaces_linked_topics(client: TestClient):
+    student_id = add_student(client)
+    git = add_topic_record(client, student_id, "Git")
+    sql = add_topic_record(client, student_id, "SQL")
+    client.post(
+        projects_url(student_id),
+        json={**PROJECT, "topic_record_ids": [git]},
     )
-    assert (
-        project_client.patch(
-            f"/api/students/{student['id']}/projects/{saved['id']}", json={}
-        ).status_code
-        == 422
+    response = client.patch(
+        f"{projects_url(student_id)}/1", json={"topic_record_ids": [sql]}
     )
-    assert (
-        project_client.post(
-            f"/api/students/{student['id']}/projects",
-            json=project_payload([], repository_link="not-a-url"),
-        ).status_code
-        == 422
+    assert response.json()["topic_record_ids"] == [sql]
+
+
+def test_update_can_remove_link_with_null(client: TestClient):
+    student_id = add_student(client)
+    client.post(projects_url(student_id), json=PROJECT)
+    response = client.patch(
+        f"{projects_url(student_id)}/1", json={"link": None}
     )
-    assert (
-        project_client.patch(
-            f"/api/students/{student['id']}/projects/999",
-            json={"status": "Completed"},
-        ).status_code
-        == 404
+    assert response.json()["link"] is None
+
+
+@pytest.mark.parametrize(
+    "bad_changes", [{}, {"name": None}, {"status": "Done"}]
+)
+def test_invalid_update_is_rejected(client: TestClient, bad_changes: dict):
+    student_id = add_student(client)
+    client.post(projects_url(student_id), json=PROJECT)
+    response = client.patch(
+        f"{projects_url(student_id)}/1", json=bad_changes
     )
-    assert (
-        project_client.patch(
-            f"/api/students/999/projects/{saved['id']}",
-            json={"status": "Completed"},
-        ).status_code
-        == 404
+    assert response.status_code == 422
+
+
+def test_update_another_students_project_is_404(client: TestClient):
+    hasan = add_student(client)
+    other = add_student(client)
+    client.post(projects_url(hasan), json=PROJECT)
+    response = client.patch(
+        f"{projects_url(other)}/1", json={"status": "Completed"}
     )
+    assert response.status_code == 404
 
 
-def test_pandas_project_summary_counts_completed_work(
-    project_client: TestClient,
-):
-    hasan = add_student(project_client, "Hasan")
-    bahodir = add_student(project_client, "Bahodirjon")
-    topic = seed_topic(project_client, hasan["id"], "git-branches-prs")
-    add_project(
-        project_client,
-        hasan["id"],
-        project_payload([topic], status="Completed"),
+# ----- Database safety net -----
+
+def test_database_itself_refuses_cross_student_link(client: TestClient):
+    """Even SQL that skips the repository cannot break the rule."""
+    hasan = add_student(client)
+    other = add_student(client)
+    others_topic = add_topic_record(client, other, "Git")
+    client.post(projects_url(hasan), json=PROJECT)
+    with pytest.raises(Exception, match="FOREIGN KEY"):
+        with client.app.state.database.connect() as connection:
+            connection.execute(
+                "INSERT INTO project_topics "
+                "(project_id, topic_record_id, student_id) "
+                "VALUES (1, ?, ?)",
+                (others_topic, hasan),
+            )
+
+
+# ----- pandas tables for the analytics code -----
+
+def test_frames_return_projects_and_links_as_tables(client: TestClient):
+    student_id = add_student(client)
+    git = add_topic_record(client, student_id, "Git")
+    client.post(
+        projects_url(student_id),
+        json={**PROJECT, "topic_record_ids": [git]},
     )
-    add_project(project_client, bahodir["id"], project_payload([]))
-
-    result = project_client.get("/api/projects/summary").json()
-    assert result["total_projects"] == 2
-    assert result["completed_projects"] == 1
-    assert result["in_progress_projects"] == 1
-    counts = {row["name"]: row for row in result["per_student"]}
-    assert counts["Hasan"]["completed_projects"] == 1
-    assert counts["Bahodirjon"]["completed_projects"] == 0
-
-
-def test_numpy_applied_count_needs_completed_topic_and_project(
-    project_client: TestClient,
-):
-    student = add_student(project_client)
-    completed_topic = seed_topic(
-        project_client, student["id"], "git-branches-prs"
-    )
-    learning_topic = seed_topic(
-        project_client, student["id"], "numpy-arrays-operations", "Learning"
-    )
-    add_project(
-        project_client,
-        student["id"],
-        project_payload([completed_topic, learning_topic], status="Completed"),
-    )
-    counts = {
-        row["skill"]: row["count"]
-        for row in project_client.get("/api/projects/summary").json()[
-            "students_per_applied_skill"
-        ]
-    }
-    assert counts["Git collaboration"] == 1
-    assert counts["NumPy basics"] == 0
-
-
-def test_empty_project_summary(project_client: TestClient):
-    result = project_client.get("/api/projects/summary").json()
-    assert result["total_projects"] == 0
-    assert result["per_student"] == []
-    assert result["applied_skills"] == []
-
-
-def test_projects_survive_restart(tmp_path: Path):
-    settings = Settings(database_path=tmp_path / "project-persist.db")
-    with TestClient(create_app(settings)) as first:
-        student = add_student(first)
-        topic_id = seed_topic(first, student["id"], "git-branches-prs")
-        saved = add_project(
-            first,
-            student["id"],
-            project_payload([topic_id], status="Completed"),
-        )
-
-    with TestClient(create_app(settings)) as second:
-        records = second.get(f"/api/students/{student['id']}/projects").json()
-        assert len(records) == 1
-        assert records[0]["id"] == saved["id"]
-        assert records[0]["topic_ids"] == [topic_id]
+    repository = ProjectRepository(client.app.state.database)
+    projects = repository.projects_frame()
+    links = repository.links_frame()
+    # contribution and link are shown as evidence under each skill.
+    assert projects.columns.tolist() == [
+        "project_id", "student_id", "name", "contribution", "link",
+        "status",
+    ]
+    assert links.to_dict("records") == [
+        {"project_id": 1, "topic_record_id": git, "student_id": student_id},
+    ]

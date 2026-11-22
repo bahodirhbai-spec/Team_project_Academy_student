@@ -1,13 +1,12 @@
 """Pydantic models: the shape and validation rules of our data.
 
 These models are the "data format agreement" between the frontend and
-the backend (see docs/data-contract.md). FastAPI uses them to validate
-incoming JSON and to build the JSON responses.
+the backend. FastAPI uses them to validate incoming JSON and to build
+the JSON responses.
 """
 
 from enum import Enum
 from typing import Any
-from urllib.parse import urlparse
 
 from pydantic import (
     BaseModel,
@@ -18,13 +17,15 @@ from pydantic import (
 )
 
 from backend.config.business_rules import (
-    MAX_DESCRIPTION_LENGTH,
+    ALLOWED_LINK_PREFIXES,
+    MAX_CONTRIBUTION_LENGTH,
+    MAX_LINK_LENGTH,
     MAX_SCORE,
     MAX_TEXT_LENGTH,
-    MAX_URL_LENGTH,
     MIN_SCORE,
     MIN_TEXT_LENGTH,
     ProjectStatus,
+    SkillLabel,
     StudentStatus,
     TopicStatus,
 )
@@ -37,17 +38,14 @@ class StudentSort(str, Enum):
     NAME_DESC = "name_desc"
 
 
-class SkillLabel(str, Enum):
-    """How strongly a student has demonstrated a generated skill."""
-
-    LEARNED = "Learned"
-    APPLIED = "Applied in a project"
-
-
 class StudentQuery(BaseModel):
     """Optional filters for GET /api/students."""
 
-    model_config = ConfigDict(str_strip_whitespace=True, frozen=True)
+    # forbid: a typo like ?serch=ali must fail loudly instead of silently
+    # returning every student.
+    model_config = ConfigDict(
+        str_strip_whitespace=True, frozen=True, extra="forbid"
+    )
 
     status: StudentStatus | None = None
     search: str | None = Field(default=None, max_length=MAX_TEXT_LENGTH)
@@ -122,271 +120,243 @@ class Summary(BaseModel):
     average_score: float | None  # None means "No scores yet."
 
 
-# ----- Topic catalogue and learning records (Bahodirjon) -----
+# ----- Projects (owner: Hasan) -----
+
+TopicRecordIds = list[int]
 
 
-class TopicCatalogueItem(BaseModel):
-    """One read-only entry from the shared catalogue."""
+def _check_link(link: str | None) -> str | None:
+    """Empty means "no link"; otherwise it must be a web address."""
+    if not link:
+        return None
+    if not link.startswith(ALLOWED_LINK_PREFIXES):
+        raise ValueError("must start with http:// or https://")
+    return link
 
-    model_config = ConfigDict(frozen=True)
 
-    key: str
+def _remove_duplicate_ids(ids: TopicRecordIds) -> TopicRecordIds:
+    """Linking the same topic twice means the same as linking it once."""
+    return sorted(set(ids))
+
+
+class ProjectCreate(BaseModel):
+    """Data the frontend sends when adding a project to a student."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(
+        min_length=MIN_TEXT_LENGTH, max_length=MAX_TEXT_LENGTH
+    )
+    contribution: str = Field(
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_CONTRIBUTION_LENGTH,
+        description="What this student personally did in the project.",
+    )
+    link: str | None = Field(default=None, max_length=MAX_LINK_LENGTH)
+    status: ProjectStatus = ProjectStatus.IN_PROGRESS
+    topic_record_ids: TopicRecordIds = Field(
+        default_factory=list,
+        description="IDs from student_topics that the project used.",
+    )
+
+    @field_validator("link")
+    @classmethod
+    def link_must_be_web_address(cls, value: str | None) -> str | None:
+        """Reject links like "github.com/x" that are not clickable."""
+        return _check_link(value)
+
+    @field_validator("topic_record_ids")
+    @classmethod
+    def drop_duplicate_topics(cls, value: TopicRecordIds) -> TopicRecordIds:
+        """Store each linked topic only once."""
+        return _remove_duplicate_ids(value)
+
+
+class ProjectUpdate(BaseModel):
+    """Data the frontend sends when editing a project (PATCH).
+
+    Every field is optional: only the fields that are sent get changed.
+    Sending topic_record_ids replaces the whole list of linked topics.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str | None = Field(
+        default=None,
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_TEXT_LENGTH,
+    )
+    contribution: str | None = Field(
+        default=None,
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_CONTRIBUTION_LENGTH,
+    )
+    link: str | None = Field(default=None, max_length=MAX_LINK_LENGTH)
+    status: ProjectStatus | None = None
+    topic_record_ids: TopicRecordIds | None = None
+
+    @field_validator(
+        "name", "contribution", "status", "topic_record_ids", mode="before"
+    )
+    @classmethod
+    def reject_explicit_null(cls, value: Any) -> Any:
+        """These may be left out, but never set to null.
+
+        link is not in this list: null is how a link gets removed.
+        """
+        if value is None:
+            raise ValueError("cannot be empty")
+        return value
+
+    @field_validator("link")
+    @classmethod
+    def link_must_be_web_address(cls, value: str | None) -> str | None:
+        """Same link rule as when creating a project."""
+        return _check_link(value)
+
+    @field_validator("topic_record_ids")
+    @classmethod
+    def drop_duplicate_topics(
+        cls, value: TopicRecordIds | None
+    ) -> TopicRecordIds | None:
+        """Same duplicate rule as when creating a project."""
+        return None if value is None else _remove_duplicate_ids(value)
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(self) -> "ProjectUpdate":
+        """An update with no fields would do nothing, so reject it."""
+        if not self.model_fields_set:
+            raise ValueError(
+                "send at least one of: name, contribution, link, "
+                "status, topic_record_ids"
+            )
+        return self
+
+
+class Project(BaseModel):
+    """A project as stored in the database, with its linked topics."""
+
+    id: int
+    student_id: int
+    name: str
+    contribution: str
+    link: str | None
+    status: ProjectStatus
+    topic_record_ids: TopicRecordIds
+
+
+# ----- Topics (owner: Bahodirjon) -----
+
+class CatalogueTopic(BaseModel):
+    """One topic anyone can study, and the skill it teaches."""
+
+    id: int
     name: str
     skill: str
 
 
-class TopicCreate(BaseModel):
-    """Add a catalogue topic to a student's learning records."""
+class TopicRecordCreate(BaseModel):
+    """Data the frontend sends when a student starts a topic."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    topic_key: str = Field(
-        min_length=MIN_TEXT_LENGTH, max_length=MAX_TEXT_LENGTH
-    )
-    status: TopicStatus
+    topic_id: int = Field(description="ID from GET /api/topics.")
+    status: TopicStatus = TopicStatus.LEARNING
 
 
-class TopicStatusUpdate(BaseModel):
-    """Change only the status of an existing learning record."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
+class TopicRecordUpdate(BaseModel):
+    """Data the frontend sends to change a topic's status (PATCH)."""
 
     status: TopicStatus
 
 
-class StudentTopic(BaseModel):
-    """A learning record as returned by the API."""
+class TopicRecord(BaseModel):
+    """One topic of one student, with the topic's name and skill."""
 
     id: int
     student_id: int
-    topic_key: str
+    topic_id: int
     topic_name: str
     skill: str
     status: TopicStatus
 
 
-# ----- Projects and topic links (Hasan) -----
+# ----- Skills and profile (owners: both) -----
 
+class SkillProject(BaseModel):
+    """A completed project that proves a skill was applied."""
 
-def validate_repository_link(value: str) -> str:
-    """Accept only http(s) URLs, so links are safe to put in <a href>."""
-    parsed = urlparse(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ValueError("must be an http:// or https:// URL")
-    return value
-
-
-class ProjectCreate(BaseModel):
-    """Add a project and link it to the student's own learning records."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    title: str = Field(
-        min_length=MIN_TEXT_LENGTH, max_length=MAX_TEXT_LENGTH
-    )
-    description: str = Field(
-        min_length=MIN_TEXT_LENGTH, max_length=MAX_DESCRIPTION_LENGTH
-    )
-    contribution: str = Field(
-        min_length=MIN_TEXT_LENGTH, max_length=MAX_DESCRIPTION_LENGTH
-    )
-    repository_link: str = Field(
-        min_length=MIN_TEXT_LENGTH, max_length=MAX_URL_LENGTH
-    )
-    status: ProjectStatus
-    topic_ids: list[int] = Field(default_factory=list)
-
-    @field_validator("repository_link")
-    @classmethod
-    def check_link(cls, value: str) -> str:
-        return validate_repository_link(value)
-
-
-class ProjectUpdate(BaseModel):
-    """Patch any project field; omitted fields are left unchanged."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    title: str | None = Field(
-        default=None,
-        min_length=MIN_TEXT_LENGTH,
-        max_length=MAX_TEXT_LENGTH,
-    )
-    description: str | None = Field(
-        default=None,
-        min_length=MIN_TEXT_LENGTH,
-        max_length=MAX_DESCRIPTION_LENGTH,
-    )
-    contribution: str | None = Field(
-        default=None,
-        min_length=MIN_TEXT_LENGTH,
-        max_length=MAX_DESCRIPTION_LENGTH,
-    )
-    repository_link: str | None = Field(
-        default=None,
-        min_length=MIN_TEXT_LENGTH,
-        max_length=MAX_URL_LENGTH,
-    )
-    status: ProjectStatus | None = None
-    topic_ids: list[int] | None = None
-
-    @field_validator(
-        "title",
-        "description",
-        "contribution",
-        "repository_link",
-        "status",
-        "topic_ids",
-        mode="before",
-    )
-    @classmethod
-    def reject_explicit_null(cls, value: Any) -> Any:
-        """Fields may be left out, but not explicitly set to null."""
-        if value is None:
-            raise ValueError("cannot be empty")
-        return value
-
-    @field_validator("repository_link")
-    @classmethod
-    def check_link(cls, value: str | None) -> str | None:
-        return validate_repository_link(value) if value is not None else None
-
-    @model_validator(mode="after")
-    def require_at_least_one_field(self) -> "ProjectUpdate":
-        if not self.model_fields_set:
-            raise ValueError("send at least one project field to change")
-        return self
-
-
-class StudentProject(BaseModel):
-    """A project as returned by the API, with its own topic links."""
-
-    id: int
-    student_id: int
-    title: str
-    description: str
-    contribution: str
-    repository_link: str
-    status: ProjectStatus
-    topic_ids: list[int]
-
-
-# ----- Generated profile and analytics views (together) -----
-
-
-class SupportingTopic(BaseModel):
-    """A completed topic that supports one generated skill."""
-
-    id: int
     name: str
-    status: TopicStatus
+    link: str | None
+    contribution: str = Field(
+        description="What THIS student did in the project."
+    )
 
 
-class SupportingProject(BaseModel):
-    """A completed project that proves a generated skill was applied."""
+class Skill(BaseModel):
+    """A skill a student has. Calculated on every request, never saved.
 
-    id: int
-    title: str
-    contribution: str
-    repository_link: str
-
-
-class GeneratedSkill(BaseModel):
-    """A skill calculated from current saved records."""
+    topics and projects are the evidence: the completed topics that
+    teach the skill and the completed projects linked to them.
+    """
 
     name: str
     label: SkillLabel
-    topics: list[SupportingTopic]
-    projects: list[SupportingProject]
+    topics: list[str] = Field(min_length=1)
+    projects: list[SkillProject] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def label_matches_projects(self) -> "Skill":
+        """The label says APPLIED only when a project proves it."""
+        is_applied = self.label == SkillLabel.APPLIED
+        if is_applied != bool(self.projects):
+            raise ValueError(
+                "label must be 'Applied in a project' exactly when "
+                "there is a supporting project"
+            )
+        return self
 
 
-class ProfileSummary(BaseModel):
-    """Counts shown at the top of a student profile."""
-
-    completed_topics: int
-    completed_projects: int
-    learned_skills: int
-
-
-class StudentProfile(BaseModel):
-    """Everything shown by the View Profile page."""
+class Profile(BaseModel):
+    """Everything the profile page shows, in one response."""
 
     student: Student
-    topics: list[StudentTopic]
-    projects: list[StudentProject]
-    skills: list[GeneratedSkill]
-    summary: ProfileSummary
-
-
-class SkillStudent(BaseModel):
-    """One row label of the NumPy student–skill matrix."""
-
-    student_id: int
-    name: str
-
-
-class LearnedSkillsCount(BaseModel):
-    """Number of 1s in one matrix row."""
-
-    student_id: int
-    name: str
-    count: int
-
-
-class StudentsPerSkill(BaseModel):
-    """Number of 1s in one matrix column."""
-
-    skill: str
-    count: int
-
-
-# ----- Project summaries (Hasan) -----
-
-
-class StudentProjectCount(BaseModel):
-    """pandas project summary for one student."""
-
-    student_id: int
-    name: str
-    total_projects: int
-    completed_projects: int
-
-
-class AppliedSkillEvidence(BaseModel):
-    """Completed projects that prove a student applied one skill."""
-
-    skill: str
-    student_id: int
-    projects: list[SupportingProject]
-
-
-class ProjectSummary(BaseModel):
-    """Global project counts and skill evidence."""
-
-    total_projects: int
-    completed_projects: int
-    in_progress_projects: int
-    per_student: list[StudentProjectCount]
-    applied_skills: list[AppliedSkillEvidence]
-    students_per_applied_skill: list[StudentsPerSkill]
+    topics: list[TopicRecord]
+    projects: list[Project]
+    skills: list[Skill]
 
 
 class StudentProgress(BaseModel):
-    """pandas summary of completed topics and projects per student."""
+    """One row of the overview table (and one row of the matrix)."""
 
     student_id: int
     name: str
-    completed_topics: int
-    completed_projects: int
-    learned_skills: int
+    completed_topics: int = Field(ge=0)
+    completed_projects: int = Field(ge=0)
+    skill_count: int = Field(ge=0)
 
 
-class SkillSummary(BaseModel):
-    """The two summaries displayed on the website."""
+class SkillCount(BaseModel):
+    """How many students have one skill (one bar of the chart)."""
 
-    students: list[SkillStudent]
+    skill: str
+    student_count: int = Field(ge=0)
+
+
+class SkillOverview(BaseModel):
+    """Data for the "skills summary" section of the main page.
+
+    matrix[row][column] is 1 when students[row] has skills[column].
+    """
+
     skills: list[str]
+    students: list[StudentProgress]
     matrix: list[list[int]]
-    learned_skills_per_student: list[LearnedSkillsCount]
-    students_per_skill: list[StudentsPerSkill]
-    progress_per_student: list[StudentProgress]
+    skill_counts: list[SkillCount]
+
+    @model_validator(mode="after")
+    def matrix_matches_rows_and_columns(self) -> "SkillOverview":
+        """Catch a bug early: the matrix must fit the two lists."""
+        if len(self.matrix) != len(self.students):
+            raise ValueError("matrix needs one row per student")
+        if any(len(row) != len(self.skills) for row in self.matrix):
+            raise ValueError("matrix needs one column per skill")
+        return self

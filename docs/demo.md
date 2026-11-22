@@ -41,22 +41,7 @@ Choose `Active` in the filter: only Hasan and Bahodirjon are shown.
    refresh: the students are still there, because they are stored in
    `students.db`.
 
-## 7. Show a profile and generated skills
-
-1. Click **View Profile** on Hasan.
-2. Add `Git branches and pull requests` with status `Completed`. The
-   profile shows **Git collaboration — Learned**.
-3. Add a project linked to that topic, with your own contribution and a
-   repository link, and set it to `Completed`. The label becomes
-   **Applied in a project** and shows the link and contribution.
-4. Change the project back to `In progress`: the label returns to
-   **Learned**. Change the topic to `Learning`: the skill disappears.
-5. Add both Python topics from the catalogue. They merge into one
-   **Python basics** skill with two supporting topics.
-6. Click **Orqaga**. The dashboard shows the pandas progress table and
-   the NumPy learned-skills and students-per-skill tables.
-
-## 8. Network tab: one request from page to database
+## 7. Network tab: one request from page to database
 
 1. Press **F12** → **Network** tab, select **Fetch/XHR**.
 2. Add a student and click **Save**.

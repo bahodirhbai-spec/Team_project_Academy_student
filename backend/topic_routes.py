@@ -1,89 +1,68 @@
-"""HTTP endpoints for topics and the skill matrix (Bahodirjon)."""
+"""API endpoints for topics. Owner: Bahodirjon.
+
+No try/except here: the repository raises our own errors (errors.py)
+and main.py turns them into 404 / 409 / 422 responses.
+"""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 
-from backend.database import Database
 from backend.models import (
-    SkillSummary,
-    StudentTopic,
-    TopicCatalogueItem,
-    TopicCreate,
-    TopicStatusUpdate,
+    CatalogueTopic,
+    TopicRecord,
+    TopicRecordCreate,
+    TopicRecordUpdate,
 )
-from backend.profile_service import build_combined_skill_summary
-from backend.repository import StudentNotFoundError
-from backend.topic_repository import DuplicateTopicError, TopicNotFoundError
-from backend.topic_service import UnknownTopicKeyError
-from backend.topic_service import add_topic as service_add_topic
-from backend.topic_service import list_catalogue, list_topics
-from backend.topic_service import update_topic_status as service_update_status
+from backend.topic_repository import TopicRepository
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", tags=["topics"])
 
 
-def get_database(request: Request) -> Database:
-    """Use the same database the rest of the app was built with."""
-    return request.app.state.database
+def get_topic_repository(request: Request) -> TopicRepository:
+    """Give each endpoint a repository that uses the app's database."""
+    return TopicRepository(request.app.state.database)
 
 
-DatabaseDep = Annotated[Database, Depends(get_database)]
+Topics = Annotated[TopicRepository, Depends(get_topic_repository)]
 
 
-@router.get("/topics/catalogue", response_model=list[TopicCatalogueItem])
-def get_catalogue() -> list[TopicCatalogueItem]:
-    """Return the predefined topics and their mapped skills."""
-    return list_catalogue()
+@router.get("/topics", response_model=list[CatalogueTopic])
+def list_catalogue(repository: Topics) -> list[CatalogueTopic]:
+    """Every topic a student can choose, with the skill it teaches."""
+    return repository.list_catalogue()
+
+
+@router.get(
+    "/students/{student_id}/topics", response_model=list[TopicRecord]
+)
+def list_student_topics(
+    student_id: int, repository: Topics
+) -> list[TopicRecord]:
+    """One student's topics and their status."""
+    return repository.list_for_student(student_id)
 
 
 @router.post(
     "/students/{student_id}/topics",
-    response_model=StudentTopic,
+    response_model=TopicRecord,
     status_code=status.HTTP_201_CREATED,
 )
-def create_topic(
-    student_id: int, new_topic: TopicCreate, database: DatabaseDep
-) -> StudentTopic:
-    """Add a catalogue topic to one student's learning records."""
-    try:
-        return service_add_topic(database, student_id, new_topic)
-    except StudentNotFoundError as error:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
-    except UnknownTopicKeyError as error:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)
-        ) from error
-    except DuplicateTopicError as error:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
-
-
-@router.get("/students/{student_id}/topics", response_model=list[StudentTopic])
-def get_topics(student_id: int, database: DatabaseDep) -> list[StudentTopic]:
-    """List one student's learning records."""
-    try:
-        return list_topics(database, student_id)
-    except StudentNotFoundError as error:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+def add_student_topic(
+    student_id: int, new_record: TopicRecordCreate, repository: Topics
+) -> TopicRecord:
+    """Give a student a topic from the catalogue."""
+    return repository.add(student_id, new_record)
 
 
 @router.patch(
-    "/students/{student_id}/topics/{topic_id}", response_model=StudentTopic
+    "/students/{student_id}/topics/{record_id}", response_model=TopicRecord
 )
-def patch_topic_status(
+def update_student_topic(
     student_id: int,
-    topic_id: int,
-    changes: TopicStatusUpdate,
-    database: DatabaseDep,
-) -> StudentTopic:
-    """Change a learning record's status from Learning to Completed or back."""
-    try:
-        return service_update_status(database, student_id, topic_id, changes)
-    except (StudentNotFoundError, TopicNotFoundError) as error:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
-
-
-@router.get("/skills/summary", response_model=SkillSummary)
-def get_skill_summary(database: DatabaseDep) -> SkillSummary:
-    """Return the NumPy matrix, its counts and the pandas progress summary."""
-    return build_combined_skill_summary(database)
+    record_id: int,
+    changes: TopicRecordUpdate,
+    repository: Topics,
+) -> TopicRecord:
+    """Switch a topic between Learning and Completed."""
+    return repository.update_status(student_id, record_id, changes)

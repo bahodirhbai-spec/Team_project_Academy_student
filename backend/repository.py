@@ -7,6 +7,7 @@ directly. If we ever change databases, only this file changes.
 import sqlite3
 
 from backend.database import Database
+from backend.errors import NotFoundError
 from backend.models import (
     Student,
     StudentCreate,
@@ -20,18 +21,20 @@ SELECT_STUDENTS_SQL = "SELECT id, name, topic, status, score FROM students"
 ALL_STUDENTS = StudentQuery()
 
 # Fixed SQL pieces picked by the enum value, never built from user text.
+# py_lower is Python's str.lower() registered on every connection: unlike
+# SQLite's NOCASE, it folds Cyrillic and other Unicode names correctly.
 ORDER_BY_SQL = {
     None: "id",
-    StudentSort.NAME_ASC: "name COLLATE NOCASE ASC, id",
-    StudentSort.NAME_DESC: "name COLLATE NOCASE DESC, id",
+    StudentSort.NAME_ASC: "py_lower(name) ASC, id",
+    StudentSort.NAME_DESC: "py_lower(name) DESC, id",
 }
 
 # instr() looks for plain text in the name, so "%" and "_" are not wildcards
 # (with LIKE they would mean "any characters").
-SEARCH_SQL = "instr(lower(name), :search) > 0"
+SEARCH_SQL = "instr(py_lower(name), :search) > 0"
 
 
-class StudentNotFoundError(Exception):
+class StudentNotFoundError(NotFoundError):
     """Raised when no student has the requested ID."""
 
     def __init__(self, student_id: int) -> None:
@@ -103,3 +106,18 @@ class StudentRepository:
 def _row_to_student(row: sqlite3.Row) -> Student:
     """Convert one database row into a Student model."""
     return Student.model_validate(dict(row))
+
+
+def ensure_student_exists(
+    connection: sqlite3.Connection, student_id: int
+) -> None:
+    """Raise StudentNotFoundError (404) if the student is missing.
+
+    Used by the topic and project repositories inside their own
+    connection, so the check and the change are one transaction.
+    """
+    row = connection.execute(
+        "SELECT 1 FROM students WHERE id = ?", (student_id,)
+    ).fetchone()
+    if row is None:
+        raise StudentNotFoundError(student_id)
