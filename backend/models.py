@@ -360,3 +360,25 @@ class SkillOverview(BaseModel):
         if any(len(row) != len(self.skills) for row in self.matrix):
             raise ValueError("matrix needs one column per skill")
         return self
+
+
+class SkillSummary(BaseModel):
+    """The extra progress tables under the skills section of the page.
+
+    This is the restored summary view from PR #6, expressed with the
+    response shapes the current dev branch already uses.
+    """
+
+    skills: list[str]
+    matrix: list[list[int]]
+    progress_per_student: list[StudentProgress]
+    students_per_skill: list[SkillCount]
+
+
+class ProjectSummary(BaseModel):
+    """Project totals and how many students applied each skill."""
+
+    total_projects: int = Field(ge=0)
+    completed_projects: int = Field(ge=0)
+    in_progress_projects: int = Field(ge=0)
+    students_per_applied_skill: list[SkillCount]

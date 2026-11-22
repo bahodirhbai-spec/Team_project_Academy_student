@@ -8,12 +8,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from backend.models import Profile, SkillOverview
+from backend.models import (
+    Profile,
+    ProjectSummary,
+    SkillOverview,
+    SkillSummary,
+)
 from backend.project_repository import ProjectRepository
 from backend.repository import StudentRepository
 from backend.skills import (
     build_profile,
+    build_project_summary,
     build_skill_overview,
+    build_skill_summary,
     generate_skills,
 )
 from backend.topic_repository import TopicRepository
@@ -56,6 +63,27 @@ def get_skill_overview(repositories: AllRepositories) -> SkillOverview:
     """The NumPy skill matrix and totals for the main page."""
     return build_skill_overview(
         repositories.students.list_all(),
+        repositories.topics.records_frame(),
+        repositories.projects.projects_frame(),
+        repositories.projects.links_frame(),
+    )
+
+
+@router.get("/skills/summary", response_model=SkillSummary)
+def get_skill_summary(repositories: AllRepositories) -> SkillSummary:
+    """The restored per-student and per-skill progress tables."""
+    return build_skill_summary(
+        repositories.students.list_all(),
+        repositories.topics.records_frame(),
+        repositories.projects.projects_frame(),
+        repositories.projects.links_frame(),
+    )
+
+
+@router.get("/projects/summary", response_model=ProjectSummary)
+def get_project_summary(repositories: AllRepositories) -> ProjectSummary:
+    """Project totals and the applied-skill counts for the main page."""
+    return build_project_summary(
         repositories.topics.records_frame(),
         repositories.projects.projects_frame(),
         repositories.projects.links_frame(),
