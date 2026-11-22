@@ -118,14 +118,18 @@ function createProjectCard(project) {
     const title = document.createElement("h3");
     title.textContent = `${project.name} — ${project.status}`;
 
+    const description = document.createElement("p");
+    description.className = "project-description";
+    description.textContent = project.description;
+
     const contribution = document.createElement("p");
-    contribution.textContent = project.contribution;
+    contribution.textContent = `O'z hissam: ${project.contribution}`;
 
     const topics = document.createElement("p");
     topics.className = "project-topics";
     topics.textContent = topicNames(project.topic_record_ids);
 
-    card.append(title, contribution, topics);
+    card.append(title, description, contribution, topics);
     if (project.link) {
         card.append(createLink(project.link));
     }
@@ -149,6 +153,8 @@ function createEditForm(project) {
     card.className = "project-card editing";
 
     const nameInput = createTextInput(project.name, "Loyiha nomi");
+    const descriptionInput =
+        createTextInput(project.description, "Loyiha tavsifi");
     const contributionInput =
         createTextInput(project.contribution, "O'z hissam");
     const linkInput = createTextInput(project.link, "https://...");
@@ -157,6 +163,7 @@ function createEditForm(project) {
 
     const save = () => handleUpdateProject(project.id, {
         name: nameInput.value,
+        description: descriptionInput.value,
         contribution: contributionInput.value,
         link: emptyToNull(linkInput.value),
         status: statusSelect.value,
@@ -166,6 +173,7 @@ function createEditForm(project) {
 
     card.append(
         nameInput,
+        descriptionInput,
         contributionInput,
         linkInput,
         statusSelect,
@@ -192,6 +200,7 @@ function readProjectForm() {
     const formData = new FormData(elements.form);
     return {
         name: formData.get("name"),
+        description: formData.get("description"),
         contribution: formData.get("contribution"),
         link: emptyToNull(formData.get("link")),
         status: formData.get("status"),

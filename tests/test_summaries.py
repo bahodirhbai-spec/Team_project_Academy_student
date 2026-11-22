@@ -61,6 +61,7 @@ def add_project(
 ) -> None:
     response = client.post(f"/api/students/{student_id}/projects", json={
         "name": "Tracker",
+        "description": "Tracks students",
         "contribution": "Pull requests",
         "link": TRACKER_LINK,
         "status": status,

@@ -75,6 +75,7 @@ def add_project(
     """Add a project linked to the given topic records; return its ID."""
     response = client.post(f"/api/students/{student_id}/projects", json={
         "name": "Tracker",
+        "description": "Tracks students",
         "contribution": contribution,
         "link": TRACKER_LINK,
         "status": status,
