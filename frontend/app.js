@@ -9,6 +9,7 @@ const NO_STUDENTS_TEXT = "Hozircha o'quvchilar yo'q";
 const NO_MATCH_TEXT = "Qidiruvga mos o'quvchi topilmadi";
 const TABLE_COLUMN_COUNT = 7;
 const NO_SKILLS_TEXT = "Hali hech kimda ko'nikma yo'q";
+const NO_DATA_TEXT = "Hozircha ma'lumot yo'q";
 const PERCENT = 100;
 
 const elements = {
@@ -26,6 +27,10 @@ const elements = {
     progressBody: document.getElementById("progress-body"),
     skillChart: document.getElementById("skill-chart"),
     skillMatrix: document.getElementById("skill-matrix"),
+    summaryError: document.getElementById("summary-error"),
+    learnedSkillsBody: document.getElementById("learned-skills-body"),
+    studentsPerSkill: document.getElementById("students-per-skill"),
+    appliedSkills: document.getElementById("applied-skills"),
 };
 
 // Search is sent to the API, so the table and /docs use the same rules.
@@ -82,6 +87,8 @@ const api = {
         }),
     getSummary: () => requestJson("/summary"),
     getSkillOverview: () => requestJson("/skills/overview"),
+    getSkillSummary: () => requestJson("/skills/summary"),
+    getProjectSummary: () => requestJson("/projects/summary"),
 };
 
 
@@ -326,6 +333,57 @@ function renderSkillMatrix({ skills, students, matrix }) {
 }
 
 
+// ===== Rendering the restored summary tables (PR #6) =====
+
+function renderSkillSummary(summary) {
+    elements.learnedSkillsBody.replaceChildren();
+    if (summary.progress_per_student.length === 0) {
+        const row = document.createElement("tr");
+        const cell = createCell(NO_DATA_TEXT);
+        cell.colSpan = 4;
+        row.append(cell);
+        elements.learnedSkillsBody.append(row);
+    } else {
+        for (const student of summary.progress_per_student) {
+            const row = document.createElement("tr");
+            row.append(
+                createCell(student.name),
+                createCell(String(student.completed_topics)),
+                createCell(String(student.completed_projects)),
+                createCell(String(student.skill_count)),
+            );
+            elements.learnedSkillsBody.append(row);
+        }
+    }
+    renderCountBars(
+        elements.studentsPerSkill,
+        summary.students_per_skill,
+    );
+}
+
+function renderCountBars(container, counts) {
+    container.replaceChildren();
+    const visible = counts.filter((item) => item.student_count > 0);
+    if (visible.length === 0) {
+        container.textContent = NO_DATA_TEXT;
+        return;
+    }
+    const largest = Math.max(...visible.map((item) => item.student_count));
+    for (const { skill, student_count: count } of visible) {
+        container.append(
+            createBarRow(skill, count, (count / largest) * PERCENT)
+        );
+    }
+}
+
+function renderProjectSummary(summary) {
+    renderCountBars(
+        elements.appliedSkills,
+        summary.students_per_applied_skill,
+    );
+}
+
+
 // ===== Loading data from the API =====
 
 async function loadStudents() {
@@ -372,8 +430,27 @@ async function loadOverview() {
     }
 }
 
+async function loadSummaryTables() {
+    try {
+        const [skillSummary, projectSummary] = await Promise.all([
+            api.getSkillSummary(),
+            api.getProjectSummary(),
+        ]);
+        renderSkillSummary(skillSummary);
+        renderProjectSummary(projectSummary);
+        showMessage(elements.summaryError, "");
+    } catch (error) {
+        showMessage(elements.summaryError, error.message);
+    }
+}
+
 async function refreshPage() {
-    await Promise.all([loadStudents(), loadSummary(), loadOverview()]);
+    await Promise.all([
+        loadStudents(),
+        loadSummary(),
+        loadOverview(),
+        loadSummaryTables(),
+    ]);
 }
 
 

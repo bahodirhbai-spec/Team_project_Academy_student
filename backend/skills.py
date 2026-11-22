@@ -12,9 +12,11 @@ from backend.config.business_rules import SkillLabel
 from backend.models import (
     Profile,
     Project,
+    ProjectSummary,
     Skill,
     SkillCount,
     SkillOverview,
+    SkillSummary,
     Student,
     StudentProgress,
     TopicRecord,
@@ -116,6 +118,48 @@ def build_skill_overview(
         skill_counts=[
             SkillCount(skill=name, student_count=int(count))
             for name, count in zip(skill_names, students_per_skill(matrix))
+        ],
+    )
+
+
+def build_skill_summary(
+    students: list[Student],
+    records: pd.DataFrame,
+    projects: pd.DataFrame,
+    links: pd.DataFrame,
+) -> SkillSummary:
+    """The restored progress tables, sharing the overview's calculations."""
+    overview = build_skill_overview(students, records, projects, links)
+    return SkillSummary(
+        skills=overview.skills,
+        matrix=overview.matrix,
+        progress_per_student=overview.students,
+        students_per_skill=overview.skill_counts,
+    )
+
+
+def build_project_summary(
+    records: pd.DataFrame,
+    projects: pd.DataFrame,
+    links: pd.DataFrame,
+) -> ProjectSummary:
+    """Project totals plus the students who applied each skill.
+
+    A skill counts as applied only when a completed project is linked
+    to a completed topic that teaches it -- the same rule generate_skills
+    uses for the "Applied in a project" label.
+    """
+    skills = generate_skills(records, projects, links)
+    applied = skills[skills["label"] == SkillLabel.APPLIED.value]
+    counts = applied.groupby("skill")["student_id"].nunique()
+    finished = len(completed_projects(projects))
+    return ProjectSummary(
+        total_projects=len(projects),
+        completed_projects=finished,
+        in_progress_projects=len(projects) - finished,
+        students_per_applied_skill=[
+            SkillCount(skill=skill, student_count=int(counts.get(skill, 0)))
+            for skill in sorted(skills["skill"].unique())
         ],
     )
 

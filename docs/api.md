@@ -45,6 +45,24 @@ score; the page then shows "No scores yet."
 | GET    | `/api/students/{id}` | Get one student by `id`                 | 200     | Bahodirjon |
 | PATCH  | `/api/students/{id}` | Update `topic`, `status` and/or `score` | 200     | Hasan      |
 | GET    | `/api/summary`       | Counts and average score                | 200     | Hasan      |
+| GET    | `/api/skills/overview` | NumPy matrix, students and skill counts | 200   | Together   |
+| GET    | `/api/skills/summary` | Restored progress and per-skill tables  | 200   | Together   |
+| GET    | `/api/projects/summary` | Project totals and applied-skill counts | 200 | Hasan      |
+
+### Summary endpoints
+
+`/api/skills/overview` powers the matrix and chart. PR #6 restores two
+extra views used by the tables on the main page:
+
+- `/api/skills/summary` returns `progress_per_student` (completed topics,
+  projects and learned skills per student) and `students_per_skill`.
+  It is computed from the same records as `/api/skills/overview`.
+- `/api/projects/summary` returns project totals and
+  `students_per_applied_skill`. A skill counts as *applied* only when a
+  completed project is linked to a completed topic teaching that skill.
+
+Both are read-only, take no parameters and return `200` with empty lists
+or zeroes when there are no records.
 
 ### GET /api/students query parameters
 
