@@ -1,5 +1,6 @@
 """API tests for a student's projects (owner: Hasan)."""
 
+import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -7,12 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.config.settings import Settings
+from backend.database import Database
 from backend.main import create_app
 from backend.project_repository import ProjectRepository
 
 STUDENT = {"name": "Hasan", "topic": "Python", "status": "Active"}
 PROJECT = {
     "name": "Academy tracker",
+    "description": "Tracks academy students and their progress",
     "contribution": "Wrote the project endpoints",
     "link": "https://github.com/example/tracker",
 }
@@ -93,6 +96,25 @@ def test_list_projects_shows_only_that_students_projects(client: TestClient):
     assert names == ["Academy tracker"]
 
 
+def test_description_and_contribution_are_saved_separately(
+    client: TestClient,
+):
+    student_id = add_student(client)
+    client.post(projects_url(student_id), json=PROJECT)
+    saved = client.get(projects_url(student_id)).json()[0]
+    assert saved["description"] == PROJECT["description"]
+    assert saved["contribution"] == PROJECT["contribution"]
+
+
+def test_project_without_description_is_rejected(client: TestClient):
+    student_id = add_student(client)
+    without_description = {
+        key: value for key, value in PROJECT.items() if key != "description"
+    }
+    response = client.post(projects_url(student_id), json=without_description)
+    assert response.status_code == 422
+
+
 def test_projects_of_missing_student_is_404(client: TestClient):
     assert client.get(projects_url(MISSING_ID)).status_code == 404
     response = client.post(projects_url(MISSING_ID), json=PROJECT)
@@ -105,6 +127,7 @@ def test_projects_of_missing_student_is_404(client: TestClient):
     "bad_field",
     [
         {"name": "   "},
+        {"description": ""},
         {"contribution": ""},
         {"status": "Sleeping"},
         {"link": "github.com/example"},
@@ -143,6 +166,18 @@ def test_update_changes_only_sent_fields(client: TestClient):
     assert response.json()["name"] == PROJECT["name"]
 
 
+def test_update_changes_description(client: TestClient):
+    student_id = add_student(client)
+    client.post(projects_url(student_id), json=PROJECT)
+    response = client.patch(
+        f"{projects_url(student_id)}/1",
+        json={"description": "A new description"},
+    )
+    assert response.status_code == 200
+    assert response.json()["description"] == "A new description"
+    assert response.json()["contribution"] == PROJECT["contribution"]
+
+
 def test_update_replaces_linked_topics(client: TestClient):
     student_id = add_student(client)
     git = add_topic_record(client, student_id, "Git")
@@ -167,7 +202,8 @@ def test_update_can_remove_link_with_null(client: TestClient):
 
 
 @pytest.mark.parametrize(
-    "bad_changes", [{}, {"name": None}, {"status": "Done"}]
+    "bad_changes",
+    [{}, {"name": None}, {"description": None}, {"status": "Done"}],
 )
 def test_invalid_update_is_rejected(client: TestClient, bad_changes: dict):
     student_id = add_student(client)
@@ -186,6 +222,41 @@ def test_update_another_students_project_is_404(client: TestClient):
         f"{projects_url(other)}/1", json={"status": "Completed"}
     )
     assert response.status_code == 404
+
+
+# ----- Saving to the database -----
+
+def test_description_and_contribution_survive_app_restart(tmp_path: Path):
+    settings = Settings(database_path=tmp_path / "restart.db")
+    with TestClient(create_app(settings)) as first_run:
+        student_id = add_student(first_run)
+        first_run.post(projects_url(student_id), json=PROJECT)
+    with TestClient(create_app(settings)) as second_run:
+        saved = second_run.get(projects_url(student_id)).json()[0]
+    assert saved["description"] == PROJECT["description"]
+    assert saved["contribution"] == PROJECT["contribution"]
+
+
+def test_old_database_gets_description_column(tmp_path: Path):
+    """A students.db made before this change has no description column."""
+    path = tmp_path / "old.db"
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "CREATE TABLE projects (id INTEGER PRIMARY KEY, "
+            "student_id INTEGER, name TEXT, contribution TEXT, "
+            "link TEXT, status TEXT, UNIQUE (student_id, id))"
+        )
+        connection.execute(
+            "INSERT INTO projects (student_id, name, contribution, status) "
+            "VALUES (1, 'Old project', 'My part', 'Completed')"
+        )
+    connection.close()
+    Database(path).create_tables()
+    with Database(path).connect() as connection:
+        row = connection.execute(
+            "SELECT name, description FROM projects"
+        ).fetchone()
+    assert dict(row) == {"name": "Old project", "description": ""}
 
 
 # ----- Database safety net -----

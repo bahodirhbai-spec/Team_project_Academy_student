@@ -19,6 +19,7 @@ from pydantic import (
 from backend.config.business_rules import (
     ALLOWED_LINK_PREFIXES,
     MAX_CONTRIBUTION_LENGTH,
+    MAX_DESCRIPTION_LENGTH,
     MAX_LINK_LENGTH,
     MAX_SCORE,
     MAX_TEXT_LENGTH,
@@ -147,6 +148,11 @@ class ProjectCreate(BaseModel):
     name: str = Field(
         min_length=MIN_TEXT_LENGTH, max_length=MAX_TEXT_LENGTH
     )
+    description: str = Field(
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_DESCRIPTION_LENGTH,
+        description="What the project does (the whole project).",
+    )
     contribution: str = Field(
         min_length=MIN_TEXT_LENGTH,
         max_length=MAX_CONTRIBUTION_LENGTH,
@@ -186,6 +192,11 @@ class ProjectUpdate(BaseModel):
         min_length=MIN_TEXT_LENGTH,
         max_length=MAX_TEXT_LENGTH,
     )
+    description: str | None = Field(
+        default=None,
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_DESCRIPTION_LENGTH,
+    )
     contribution: str | None = Field(
         default=None,
         min_length=MIN_TEXT_LENGTH,
@@ -196,7 +207,12 @@ class ProjectUpdate(BaseModel):
     topic_record_ids: TopicRecordIds | None = None
 
     @field_validator(
-        "name", "contribution", "status", "topic_record_ids", mode="before"
+        "name",
+        "description",
+        "contribution",
+        "status",
+        "topic_record_ids",
+        mode="before",
     )
     @classmethod
     def reject_explicit_null(cls, value: Any) -> Any:
@@ -227,8 +243,8 @@ class ProjectUpdate(BaseModel):
         """An update with no fields would do nothing, so reject it."""
         if not self.model_fields_set:
             raise ValueError(
-                "send at least one of: name, contribution, link, "
-                "status, topic_record_ids"
+                "send at least one of: name, description, contribution, "
+                "link, status, topic_record_ids"
             )
         return self
 
@@ -239,6 +255,7 @@ class Project(BaseModel):
     id: int
     student_id: int
     name: str
+    description: str
     contribution: str
     link: str | None
     status: ProjectStatus
@@ -360,3 +377,25 @@ class SkillOverview(BaseModel):
         if any(len(row) != len(self.skills) for row in self.matrix):
             raise ValueError("matrix needs one column per skill")
         return self
+
+
+class SkillSummary(BaseModel):
+    """The extra progress tables under the skills section of the page.
+
+    This is the restored summary view from PR #6, expressed with the
+    response shapes the current dev branch already uses.
+    """
+
+    skills: list[str]
+    matrix: list[list[int]]
+    progress_per_student: list[StudentProgress]
+    students_per_skill: list[SkillCount]
+
+
+class ProjectSummary(BaseModel):
+    """Project totals and how many students applied each skill."""
+
+    total_projects: int = Field(ge=0)
+    completed_projects: int = Field(ge=0)
+    in_progress_projects: int = Field(ge=0)
+    students_per_applied_skill: list[SkillCount]

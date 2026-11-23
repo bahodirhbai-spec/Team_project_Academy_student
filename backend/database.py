@@ -69,6 +69,7 @@ CREATE_PROJECTS_TABLE = f"""
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         student_id   INTEGER NOT NULL REFERENCES students (id),
         name         TEXT    NOT NULL,
+        description  TEXT    NOT NULL DEFAULT '',
         contribution TEXT    NOT NULL,
         link         TEXT,
         status       TEXT    NOT NULL
@@ -108,6 +109,15 @@ DELETE_UNUSED_OLD_TOPICS = """
     WHERE name NOT IN ({placeholders})
       AND id NOT IN (SELECT topic_id FROM student_topics)
 """
+
+# CREATE TABLE IF NOT EXISTS does nothing when the table is already
+# there, so an older students.db would never get a new column. These
+# columns are added with ALTER TABLE if they are missing. Old projects
+# get '' (empty) and can be filled in later with "Tahrirlash".
+# (table, column, column definition)
+ADDED_COLUMNS = (
+    ("projects", "description", "TEXT NOT NULL DEFAULT ''"),
+)
 
 # Order matters: a table must exist before another table points at it.
 CREATE_TABLE_STATEMENTS = (
@@ -150,6 +160,7 @@ class Database:
         with self.connect() as connection:
             for statement in CREATE_TABLE_STATEMENTS:
                 connection.execute(statement)
+            _add_missing_columns(connection)
 
     def fill_catalogue(self) -> None:
         """Make the topic_catalogue table match TOPIC_CATALOGUE."""
@@ -162,4 +173,18 @@ class Database:
             connection.execute(
                 DELETE_UNUSED_OLD_TOPICS.format(placeholders=placeholders),
                 topic_names,
+            )
+
+
+def _add_missing_columns(connection: sqlite3.Connection) -> None:
+    """Add every column from ADDED_COLUMNS that an old table lacks."""
+    for table, column, definition in ADDED_COLUMNS:
+        # PRAGMA table_info gives one row per existing column.
+        rows = connection.execute(f"PRAGMA table_info({table})")
+        existing_columns = {row["name"] for row in rows}
+        if column not in existing_columns:
+            # Names come from ADDED_COLUMNS (our own constants), not
+            # from user input, so they are safe in the SQL text.
+            connection.execute(
+                f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
             )

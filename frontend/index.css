@@ -425,6 +425,7 @@ tbody tr:hover { background: #f0f5ff; }
 
 /* ===== Oddiy jadvallar: ustun kengligi avtomatik ===== */
 .plain-table th, .plain-table td { width: auto; }
+.compact-table th, .compact-table td { padding: 8px 10px; }
 .matrix-table th, .matrix-table td { text-align: center; }
 .matrix-table td:first-child, .matrix-table th:first-child { text-align: left; }
 .has-skill { background: #e4f4ea; color: #1e7a4c; font-weight: 700; }
