@@ -20,7 +20,8 @@ from backend.models import (
 from backend.repository import ensure_student_exists
 
 SELECT_PROJECTS_SQL = (
-    "SELECT id, student_id, name, contribution, link, status "
+    "SELECT id, student_id, name, description, contribution, link, "
+    "status "
     "FROM projects WHERE student_id = :student_id"
 )
 
@@ -79,8 +80,9 @@ class ProjectRepository:
             _check_own_topics(connection, student_id, topic_ids)
             cursor = connection.execute(
                 "INSERT INTO projects "
-                "(student_id, name, contribution, link, status) "
-                "VALUES (:student_id, :name, :contribution, :link, :status)",
+                "(student_id, name, description, contribution, link, status) "
+                "VALUES (:student_id, :name, :description, :contribution, "
+                ":link, :status)",
                 {"student_id": student_id, **data},
             )
             project_id = cursor.lastrowid

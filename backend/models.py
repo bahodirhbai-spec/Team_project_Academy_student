@@ -20,6 +20,7 @@ from pydantic import (
 from backend.config.business_rules import (
     ALLOWED_LINK_SCHEMES,
     MAX_CONTRIBUTION_LENGTH,
+    MAX_DESCRIPTION_LENGTH,
     MAX_LINK_LENGTH,
     MAX_SCORE,
     MAX_TEXT_LENGTH,
@@ -149,6 +150,11 @@ class ProjectCreate(BaseModel):
     name: str = Field(
         min_length=MIN_TEXT_LENGTH, max_length=MAX_TEXT_LENGTH
     )
+    description: str = Field(
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_DESCRIPTION_LENGTH,
+        description="What the project does (the whole project).",
+    )
     contribution: str = Field(
         min_length=MIN_TEXT_LENGTH,
         max_length=MAX_CONTRIBUTION_LENGTH,
@@ -188,6 +194,11 @@ class ProjectUpdate(BaseModel):
         min_length=MIN_TEXT_LENGTH,
         max_length=MAX_TEXT_LENGTH,
     )
+    description: str | None = Field(
+        default=None,
+        min_length=MIN_TEXT_LENGTH,
+        max_length=MAX_DESCRIPTION_LENGTH,
+    )
     contribution: str | None = Field(
         default=None,
         min_length=MIN_TEXT_LENGTH,
@@ -198,7 +209,12 @@ class ProjectUpdate(BaseModel):
     topic_record_ids: TopicRecordIds | None = None
 
     @field_validator(
-        "name", "contribution", "status", "topic_record_ids", mode="before"
+        "name",
+        "description",
+        "contribution",
+        "status",
+        "topic_record_ids",
+        mode="before",
     )
     @classmethod
     def reject_explicit_null(cls, value: Any) -> Any:
@@ -229,8 +245,8 @@ class ProjectUpdate(BaseModel):
         """An update with no fields would do nothing, so reject it."""
         if not self.model_fields_set:
             raise ValueError(
-                "send at least one of: name, contribution, link, "
-                "status, topic_record_ids"
+                "send at least one of: name, description, contribution, "
+                "link, status, topic_record_ids"
             )
         return self
 
@@ -241,6 +257,7 @@ class Project(BaseModel):
     id: int
     student_id: int
     name: str
+    description: str
     contribution: str
     link: str | None
     status: ProjectStatus
