@@ -109,6 +109,8 @@ def test_projects_of_missing_student_is_404(client: TestClient):
         {"status": "Sleeping"},
         {"link": "github.com/example"},
         {"link": "ftp://example.com"},
+        {"link": "https://"},
+        {"link": "https:///repo"},
     ],
 )
 def test_invalid_project_is_rejected(client: TestClient, bad_field: dict):
