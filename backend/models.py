@@ -7,6 +7,7 @@ the JSON responses.
 
 from enum import Enum
 from typing import Any
+from urllib.parse import urlparse
 
 from pydantic import (
     BaseModel,
@@ -17,7 +18,7 @@ from pydantic import (
 )
 
 from backend.config.business_rules import (
-    ALLOWED_LINK_PREFIXES,
+    ALLOWED_LINK_SCHEMES,
     MAX_CONTRIBUTION_LENGTH,
     MAX_DESCRIPTION_LENGTH,
     MAX_LINK_LENGTH,
@@ -127,11 +128,12 @@ TopicRecordIds = list[int]
 
 
 def _check_link(link: str | None) -> str | None:
-    """Empty means "no link"; otherwise it must be a web address."""
+    """Empty means "no link"; otherwise it must be a full web address."""
     if not link:
         return None
-    if not link.startswith(ALLOWED_LINK_PREFIXES):
-        raise ValueError("must start with http:// or https://")
+    parts = urlparse(link)
+    if parts.scheme not in ALLOWED_LINK_SCHEMES or not parts.hostname:
+        raise ValueError("must be a full http:// or https:// address")
     return link
 
 

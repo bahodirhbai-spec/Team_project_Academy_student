@@ -32,7 +32,7 @@ class StudentStatus(str, Enum):
 MAX_DESCRIPTION_LENGTH = 1000  # a few sentences: what the project does
 MAX_CONTRIBUTION_LENGTH = 1000  # a few sentences about own work
 MAX_LINK_LENGTH = 300
-ALLOWED_LINK_PREFIXES = ("http://", "https://")
+ALLOWED_LINK_SCHEMES = ("http", "https")
 
 
 class ProjectStatus(str, Enum):
